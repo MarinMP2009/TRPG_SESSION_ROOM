@@ -1,0 +1,1671 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>세션룸 — TRPG 세션 도구</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<!-- ============================================================
+     설정: Firebase 프로젝트 설정값을 여기에 채워 넣으세요.
+     설정-안내서.md 문서를 참고하세요.
+     ============================================================ -->
+<script>
+  window.FIREBASE_CONFIG = {
+    apiKey: "AIzaSyBrv7YDRo5YcJwkoj8Ipvi2LIAuPzz7ic4",
+    authDomain: "trpg-session-9c843.firebaseapp.com",
+    databaseURL: "https://trpg-session-9c843-default-rtdb.firebaseio.com",
+    projectId: "trpg-session-9c843",
+    storageBucket: "trpg-session-9c843.firebasestorage.app",
+    messagingSenderId: "728779661386",
+    appId: "1:728779661386:web:1eaa2b3d03a22e696c06b3"
+  };
+</script>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+
+<style>
+:root{
+  --ink:#11151c;
+  --panel:#171c26;
+  --panel-raised:#1e2530;
+  --border:#2a3242;
+  --text:#e7e2d3;
+  --muted:#8b93a7;
+  --brass:#b08b4f;
+  --brass-dim:#8a6d3f;
+  --crimson:#9a4444;
+  --crimson-dim:#7a3535;
+  --verdigris:#4c7a6d;
+  --verdigris-dim:#3a5d53;
+  --danger-bg:#2a1616;
+  --radius:6px;
+}
+*{box-sizing:border-box;}
+html,body{height:100%;}
+body{
+  margin:0;
+  background:var(--ink);
+  color:var(--text);
+  font-family:'Inter',sans-serif;
+  font-size:14px;
+  line-height:1.5;
+}
+h1,h2,h3,.serif{font-family:'Spectral',serif;}
+button{
+  font-family:inherit;
+  cursor:pointer;
+  border-radius:var(--radius);
+  border:1px solid var(--border);
+  background:var(--panel-raised);
+  color:var(--text);
+  padding:8px 14px;
+  font-size:13px;
+  transition:border-color .15s ease, background .15s ease;
+}
+button:hover{border-color:var(--brass-dim);}
+button:disabled{opacity:.45;cursor:not-allowed;}
+button.primary{background:var(--brass-dim);border-color:var(--brass);color:#fff8ec;}
+button.primary:hover{background:var(--brass);}
+button.danger{background:var(--crimson-dim);border-color:var(--crimson);color:#fff0ee;}
+button.danger:hover{background:var(--crimson);}
+button.ghost{background:transparent;}
+input,select,textarea{
+  font-family:inherit;
+  background:var(--ink);
+  border:1px solid var(--border);
+  color:var(--text);
+  border-radius:var(--radius);
+  padding:8px 10px;
+  font-size:13px;
+  width:100%;
+}
+input:focus,select:focus,textarea:focus,button:focus-visible{
+  outline:2px solid var(--brass-dim);
+  outline-offset:1px;
+}
+label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px;}
+a{color:var(--brass);}
+::-webkit-scrollbar{width:10px;height:10px;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:5px;}
+
+.hidden{display:none !important;}
+
+/* ---------- Landing ---------- */
+#view-landing{
+  min-height:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:32px 16px;
+}
+.landing-wrap{width:100%;max-width:860px;}
+.landing-head{text-align:center;margin-bottom:28px;}
+.landing-head .eyebrow{color:var(--brass);letter-spacing:.02em;font-size:13px;}
+.landing-head h1{font-size:32px;margin:6px 0 4px;font-weight:600;}
+.landing-head p{color:var(--muted);margin:0;}
+.landing-cards{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+@media (max-width:720px){.landing-cards{grid-template-columns:1fr;}}
+.card{
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:22px;
+}
+.card h2{font-size:19px;margin:0 0 4px;}
+.card .desc{color:var(--muted);font-size:12.5px;margin-bottom:6px;}
+.card .actions{margin-top:16px;display:flex;gap:8px;}
+.msg{font-size:12.5px;margin-top:10px;min-height:16px;}
+.msg.err{color:#e79b9b;}
+.msg.ok{color:#8ecab8;}
+
+/* ---------- Session shell ---------- */
+#view-session{display:none;height:100%;grid-template-rows:52px 1fr;grid-template-columns:210px 1fr;}
+#view-session.active{display:grid;}
+.topbar{
+  grid-column:1/3;
+  display:flex;align-items:center;gap:12px;
+  padding:0 16px;
+  border-bottom:1px solid var(--border);
+  background:var(--panel);
+}
+.topbar .room-name{font-family:'Spectral',serif;font-size:16px;font-weight:600;}
+.role-badge{font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid var(--border);color:var(--muted);}
+.role-badge.gm{border-color:var(--crimson);color:#e2a9a9;}
+.role-badge.player{border-color:var(--verdigris);color:#a3d3c4;}
+.topbar .spacer{flex:1;}
+.topbar .room-code{font-size:12px;color:var(--muted);}
+.sidebar{
+  border-right:1px solid var(--border);
+  background:var(--panel);
+  padding:10px 8px;
+  overflow-y:auto;
+}
+.nav-btn{
+  display:flex;align-items:center;gap:8px;
+  width:100%;text-align:left;
+  background:transparent;border:1px solid transparent;
+  padding:9px 10px;margin-bottom:2px;
+  color:var(--muted);font-size:13px;
+}
+.nav-btn:hover{color:var(--text);}
+.nav-btn.active{background:var(--panel-raised);border-color:var(--border);color:var(--text);}
+.nav-sep{height:1px;background:var(--border);margin:8px 4px;}
+.nav-label{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:8px 10px 2px;}
+.main{overflow:hidden;display:flex;flex-direction:column;}
+.tab-panel{display:none;flex:1;overflow:hidden;flex-direction:column;}
+.tab-panel.active{display:flex;}
+
+/* ---------- Chat ---------- */
+#panel-chat{flex-direction:row;}
+.chat-col{flex:1;display:flex;flex-direction:column;min-width:0;}
+.chat-list{flex:1;overflow-y:auto;padding:14px 16px;}
+.chat-msg{margin-bottom:10px;max-width:640px;}
+.chat-msg .who{font-size:12px;color:var(--brass);margin-bottom:2px;}
+.chat-msg .who .tag{color:var(--muted);font-weight:400;margin-left:6px;font-size:11px;}
+.chat-msg .body{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:8px 12px;white-space:pre-wrap;word-break:break-word;}
+.chat-msg.whisper .body{border-color:var(--crimson-dim);background:#221818;}
+.chat-msg.system .body{color:var(--muted);font-style:italic;border-style:dashed;}
+.chat-msg.dice .body{border-color:var(--brass-dim);}
+.chat-input-row{border-top:1px solid var(--border);padding:10px 12px;background:var(--panel);}
+.chat-toolbar{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center;}
+.chat-toolbar select{width:auto;flex:0 0 auto;}
+.chat-send-row{display:flex;gap:8px;}
+.chat-send-row textarea{resize:none;height:44px;}
+.whisper-picker{display:none;gap:6px;flex-wrap:wrap;margin-bottom:8px;background:var(--ink);border:1px solid var(--border);border-radius:6px;padding:8px;}
+.whisper-picker.active{display:flex;}
+.whisper-picker label{display:flex;align-items:center;gap:4px;margin:0;color:var(--text);font-size:12px;}
+.roster{width:190px;border-left:1px solid var(--border);padding:12px;overflow-y:auto;flex-shrink:0;}
+.roster h3{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:0 0 8px;}
+.roster .p{font-size:13px;padding:5px 0;display:flex;justify-content:space-between;}
+.roster .p .dot{width:7px;height:7px;border-radius:50%;background:var(--verdigris);display:inline-block;margin-right:6px;}
+
+/* ---------- Generic panel padding ---------- */
+.pad{padding:18px;overflow-y:auto;flex:1;}
+.section-title{font-size:15px;margin:0 0 4px;font-weight:600;}
+.hint{color:var(--muted);font-size:12px;margin:0 0 14px;}
+.row{display:flex;gap:10px;flex-wrap:wrap;}
+.row > *{flex:1;min-width:140px;}
+
+/* ---------- Characters ---------- */
+.char-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;}
+.char-card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px;}
+.char-card img{width:100%;height:120px;object-fit:cover;border-radius:6px;background:var(--ink);margin-bottom:8px;}
+.char-card .name{font-weight:600;margin-bottom:4px;}
+.char-card .stat-row{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin:2px 0;}
+.char-card .stat-row input{width:52px;padding:2px 4px;text-align:center;}
+.char-card .own-badge{font-size:10px;color:var(--brass);}
+
+/* ---------- Screen / board ---------- */
+#panel-screen{position:relative;}
+.board-toolbar{display:flex;gap:8px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--panel);flex-wrap:wrap;}
+.board-viewport{flex:1;position:relative;overflow:hidden;background:#0a0d12;background-image:radial-gradient(circle,#1a2029 1px,transparent 1px);background-size:26px 26px;}
+.board-viewport.no-grid{background-image:none;}
+.board-stage{position:absolute;top:0;left:0;transform-origin:0 0;width:2000px;height:1400px;}
+.board-bg{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;opacity:.9;pointer-events:none;}
+.token{
+  position:absolute;
+  cursor:grab;
+  border-radius:6px;
+  box-shadow:0 3px 10px rgba(0,0,0,.5);
+  user-select:none;
+  touch-action:none;
+}
+.token img{width:100%;height:100%;display:block;border-radius:6px;pointer-events:none;}
+.token.dragging{cursor:grabbing;box-shadow:0 0 0 2px var(--brass);}
+.zoom-slider{width:140px;}
+
+/* ---------- BGM ---------- */
+.track-list{list-style:none;margin:0;padding:0;}
+.track-list li{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px;background:var(--panel);}
+.track-list li.current{border-color:var(--brass-dim);}
+.track-list li .title{flex:1;}
+
+/* ---------- MP4 ---------- */
+.video-wrap{background:#000;border-radius:8px;overflow:hidden;margin-bottom:14px;}
+.video-wrap video{width:100%;max-height:46vh;display:block;background:#000;}
+.progress-table{width:100%;border-collapse:collapse;font-size:12.5px;}
+.progress-table th,.progress-table td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);}
+.progress-bar{background:var(--ink);border:1px solid var(--border);border-radius:4px;height:8px;overflow:hidden;width:120px;}
+.progress-bar > div{height:100%;background:var(--verdigris);}
+.status-pill{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--border);color:var(--muted);}
+.status-pill.ready{border-color:var(--verdigris);color:#9fd6c4;}
+.status-pill.transferring{border-color:var(--brass-dim);color:#e3c98d;}
+.status-pill.failed{border-color:var(--crimson);color:#e2a9a9;}
+
+/* ---------- Handouts / notes ---------- */
+.handout-card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;}
+.handout-card h4{margin:0 0 6px;font-size:14px;}
+.handout-card img{max-width:100%;border-radius:6px;margin-top:6px;}
+
+/* ---------- Modal ---------- */
+.modal-overlay{position:fixed;inset:0;background:rgba(10,12,16,.65);display:none;align-items:center;justify-content:center;z-index:50;padding:16px;}
+.modal-overlay.active{display:flex;}
+.modal{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:20px;width:100%;max-width:420px;}
+.modal h3{margin-top:0;}
+
+.toast-stack{position:fixed;right:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:80;}
+.toast{background:var(--panel-raised);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:12.5px;max-width:280px;}
+</style>
+</head>
+<body>
+
+<!-- ================= LANDING ================= -->
+<div id="view-landing">
+  <div class="landing-wrap">
+    <div class="landing-head">
+      <div class="eyebrow serif">TRPG 세션 도구</div>
+      <h1>세션룸</h1>
+      <p>방을 만들거나, 초대받은 방에 비밀번호로 들어오세요.</p>
+    </div>
+
+    <div class="landing-cards">
+      <div class="card">
+        <h2>방 만들기</h2>
+        <p class="desc">방을 만든 사람은 GM(키퍼)이 됩니다.</p>
+
+        <label for="cr-name">방 이름</label>
+        <input id="cr-name" maxlength="40" placeholder="예: 인시무스에서 온 그림자">
+
+        <label for="cr-rule">룰 시스템</label>
+        <select id="cr-rule">
+          <option value="coc7">크툴루의 부름 7판</option>
+          <option value="freeform">자유 판정 (기본 주사위만)</option>
+        </select>
+
+        <label for="cr-gmpass">GM 비밀번호</label>
+        <input id="cr-gmpass" type="password" placeholder="GM만 아는 비밀번호">
+
+        <label for="cr-playerpass">참가자 비밀번호</label>
+        <input id="cr-playerpass" type="password" placeholder="탐사자에게 공유할 비밀번호">
+
+        <label for="cr-nick">내 표시 이름</label>
+        <input id="cr-nick" maxlength="20" placeholder="키퍼">
+
+        <label for="cr-import">기본 세팅 불러오기 (선택)</label>
+        <input id="cr-import" type="file" accept="application/json">
+
+        <div class="actions">
+          <button class="primary" id="btn-create-room">방 만들기</button>
+        </div>
+        <div class="msg" id="cr-msg"></div>
+      </div>
+
+      <div class="card">
+        <h2>방 참가하기</h2>
+        <p class="desc">방 코드와 비밀번호를 입력하세요. 비밀번호에 따라 역할이 자동으로 정해집니다.</p>
+
+        <label for="jn-code">방 코드</label>
+        <input id="jn-code" maxlength="40" placeholder="방을 만든 사람에게 받은 코드">
+
+        <label for="jn-pass">비밀번호</label>
+        <input id="jn-pass" type="password">
+
+        <label for="jn-nick">내 표시 이름</label>
+        <input id="jn-nick" maxlength="20" placeholder="탐사자 이름">
+
+        <div class="actions">
+          <button class="primary" id="btn-join-room">입장하기</button>
+        </div>
+        <div class="msg" id="jn-msg"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= SESSION ================= -->
+<div id="view-session">
+  <div class="topbar">
+    <div class="room-name" id="tb-room-name">—</div>
+    <span class="role-badge" id="tb-role">—</span>
+    <div class="spacer"></div>
+    <span class="room-code" id="tb-room-code"></span>
+    <button class="ghost" id="btn-copy-link">링크 복사</button>
+    <button class="ghost" id="btn-leave">나가기</button>
+  </div>
+
+  <div class="sidebar">
+    <button class="nav-btn active" data-tab="chat">채팅</button>
+    <button class="nav-btn" data-tab="characters">캐릭터</button>
+    <button class="nav-btn" data-tab="screen">스크린</button>
+    <button class="nav-btn" data-tab="bgm">BGM</button>
+    <button class="nav-btn" data-tab="video">영상 (mp4)</button>
+    <button class="nav-btn" data-tab="handouts">핸드아웃</button>
+
+    <div class="nav-sep" id="gm-nav-sep"></div>
+    <div class="nav-label" id="gm-nav-label">GM 전용</div>
+    <button class="nav-btn" data-tab="gmnotes">GM 메모</button>
+    <button class="nav-btn" data-tab="settings">방 설정</button>
+  </div>
+
+  <div class="main">
+
+    <!-- CHAT -->
+    <div class="tab-panel active" id="panel-chat">
+      <div class="chat-col">
+        <div class="chat-list" id="chat-list"></div>
+        <div class="chat-input-row">
+          <div class="chat-toolbar">
+            <select id="chat-channel"></select>
+            <button id="btn-toggle-whisper" class="ghost">귓속말</button>
+            <button id="btn-open-dice" class="ghost">주사위</button>
+            <button id="btn-open-check" class="ghost">판정</button>
+            <button id="btn-download-log" class="ghost">기록 저장</button>
+          </div>
+          <div class="whisper-picker" id="whisper-picker"></div>
+          <div class="chat-send-row">
+            <textarea id="chat-input" placeholder="메시지를 입력하세요 (Enter로 전송, Shift+Enter 줄바꿈)"></textarea>
+            <button class="primary" id="btn-send-chat">보내기</button>
+          </div>
+        </div>
+      </div>
+      <div class="roster">
+        <h3>접속자</h3>
+        <div id="roster-list"></div>
+      </div>
+    </div>
+
+    <!-- CHARACTERS -->
+    <div class="tab-panel" id="panel-characters">
+      <div class="pad">
+        <div class="section-title">캐릭터</div>
+        <p class="hint">본인 캐릭터의 상태는 직접 수정할 수 있습니다. 캐릭터는 서버에 영구 저장되지 않으니, 세션이 끝나기 전에 내보내기 해 두세요.</p>
+        <div class="row" style="margin-bottom:16px;">
+          <button class="primary" id="btn-new-char">새 캐릭터</button>
+          <button class="ghost" id="btn-import-char">가져오기</button>
+          <input type="file" id="char-import-input" accept="application/json" class="hidden">
+        </div>
+        <div class="char-grid" id="char-grid"></div>
+      </div>
+    </div>
+
+    <!-- SCREEN -->
+    <div class="tab-panel" id="panel-screen">
+      <div class="board-toolbar">
+        <button class="ghost" id="btn-set-bg">배경 설정 (GM)</button>
+        <button class="ghost" id="btn-add-image">이미지 추가 (GM)</button>
+        <label style="margin:0;display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px;">
+          <input type="checkbox" id="chk-grid" checked style="width:auto;"> 격자
+        </label>
+        <span style="color:var(--muted);font-size:12px;">화면 크기</span>
+        <input type="range" class="zoom-slider" id="zoom-slider" min="30" max="200" value="100">
+        <span id="zoom-label" style="color:var(--muted);font-size:12px;">100%</span>
+      </div>
+      <div class="board-viewport" id="board-viewport">
+        <div class="board-stage" id="board-stage">
+          <img id="board-bg" class="board-bg" src="" alt="" style="display:none;">
+        </div>
+      </div>
+    </div>
+
+    <!-- BGM -->
+    <div class="tab-panel" id="panel-bgm">
+      <div class="pad">
+        <div class="section-title">BGM</div>
+        <p class="hint">곡 등록과 재생은 GM만 할 수 있습니다. 소리 크기는 각자 기기에서만 적용됩니다.</p>
+        <div class="row" id="gm-bgm-controls">
+          <input id="bgm-title" placeholder="곡 이름">
+          <input id="bgm-url" placeholder="곡 링크(URL)">
+          <button class="ghost" id="btn-add-track">추가</button>
+        </div>
+        <ul class="track-list" id="track-list"></ul>
+        <label>내 기기 볼륨</label>
+        <input type="range" id="bgm-volume" min="0" max="100" value="60">
+        <audio id="bgm-audio" preload="auto"></audio>
+      </div>
+    </div>
+
+    <!-- VIDEO -->
+    <div class="tab-panel" id="panel-video">
+      <div class="pad">
+        <div class="section-title">영상 동시 재생 (mp4)</div>
+        <p class="hint">GM이 고른 영상을 참가자 브라우저로 직접 전송해서, 모두 같은 장면을 같은 시점에 재생합니다. P2P 연결이 안 되면 파일을 직접 선택하거나 링크로 대체할 수 있습니다.</p>
+
+        <div class="row" id="gm-video-controls">
+          <input type="file" id="video-file-input" accept="video/mp4">
+          <input id="video-url-input" placeholder="또는 mp4 링크(URL)">
+          <button class="ghost" id="btn-video-load-url">링크로 불러오기</button>
+        </div>
+
+        <div class="video-wrap">
+          <video id="video-el" playsinline></video>
+        </div>
+
+        <div class="row" id="gm-video-transport">
+          <button class="primary" id="btn-video-play">전체 재생</button>
+          <button class="ghost" id="btn-video-pause">전체 일시정지</button>
+          <button class="ghost" id="btn-video-stop">영상 내리기</button>
+        </div>
+
+        <div class="row" id="player-video-fallback">
+          <input type="file" id="video-local-input" accept="video/mp4">
+          <span class="hint" style="margin:0;">받지 못했다면, 같은 영상을 여기서 직접 선택하세요.</span>
+        </div>
+
+        <table class="progress-table" id="gm-progress-table">
+          <thead><tr><th>참가자</th><th>상태</th><th>진행률</th></tr></thead>
+          <tbody id="progress-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- HANDOUTS -->
+    <div class="tab-panel" id="panel-handouts">
+      <div class="pad">
+        <div class="section-title">핸드아웃</div>
+        <p class="hint" id="handout-hint">GM이 공개한 자료만 보입니다.</p>
+        <div id="gm-handout-editor" class="row" style="flex-direction:column;">
+          <input id="ho-title" placeholder="제목">
+          <textarea id="ho-body" placeholder="내용" style="height:80px;"></textarea>
+          <input id="ho-image" placeholder="이미지 링크(선택)">
+          <button class="primary" id="btn-publish-handout" style="width:fit-content;">참가자에게 공개</button>
+        </div>
+        <div id="handout-list" style="margin-top:16px;"></div>
+      </div>
+    </div>
+
+    <!-- GM NOTES -->
+    <div class="tab-panel" id="panel-gmnotes">
+      <div class="pad">
+        <div class="section-title">GM 메모</div>
+        <p class="hint">GM만 볼 수 있고, 방 기본 세팅으로 영구 저장됩니다.</p>
+        <textarea id="gm-notes-text" style="height:60vh;"></textarea>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="tab-panel" id="panel-settings">
+      <div class="pad">
+        <div class="section-title">방 설정</div>
+        <div class="row" style="flex-direction:column;max-width:420px;">
+          <label>방 기본 세팅 내보내기</label>
+          <button class="ghost" id="btn-export-room" style="width:fit-content;">JSON으로 내려받기</button>
+
+          <label style="margin-top:18px;">세션 종료</label>
+          <p class="hint" style="margin:0 0 6px;">채팅, 귓속말, 캐릭터, 영상 상태 등 이번 세션의 임시 데이터를 모두 지웁니다. 방 기본 세팅(배경, 이미지, BGM, 채널, 핸드아웃, GM 메모)은 남습니다.</p>
+          <button class="danger" id="btn-end-session" style="width:fit-content;">세션 종료하고 정리</button>
+
+          <label style="margin-top:18px;">방 삭제</label>
+          <p class="hint" style="margin:0 0 6px;">방 전체를 되돌릴 수 없이 삭제합니다.</p>
+          <button class="danger" id="btn-delete-room" style="width:fit-content;">방 삭제</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ================= MODALS ================= -->
+<div class="modal-overlay" id="modal-dice">
+  <div class="modal">
+    <h3>주사위 굴리기</h3>
+    <label>표기 (예: 2d6+3, 1d100)</label>
+    <input id="dice-expr" value="1d100">
+    <div class="actions" style="margin-top:14px;display:flex;gap:8px;">
+      <button class="primary" id="btn-roll-dice">굴리기</button>
+      <button class="ghost" id="btn-close-dice">닫기</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-check">
+  <div class="modal">
+    <h3>판정 (크툴루의 부름 7판)</h3>
+    <label>기능치 / 목표값 (1~99)</label>
+    <input id="check-target" type="number" min="1" max="99" value="50">
+    <label>보너스/페널티 주사위</label>
+    <select id="check-bonus">
+      <option value="0">없음</option>
+      <option value="1">보너스 주사위 1개</option>
+      <option value="2">보너스 주사위 2개</option>
+      <option value="-1">페널티 주사위 1개</option>
+      <option value="-2">페널티 주사위 2개</option>
+    </select>
+    <div class="actions" style="margin-top:14px;display:flex;gap:8px;">
+      <button class="primary" id="btn-roll-check">판정하기</button>
+      <button class="ghost" id="btn-close-check">닫기</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-char">
+  <div class="modal" style="max-width:460px;">
+    <h3 id="char-modal-title">캐릭터</h3>
+    <label>이름</label>
+    <input id="ch-name">
+    <label>이미지 링크</label>
+    <input id="ch-image">
+    <div class="row">
+      <div><label>HP</label><input id="ch-hp" type="number"></div>
+      <div><label>HP 최대</label><input id="ch-hpmax" type="number"></div>
+    </div>
+    <div class="row">
+      <div><label>MP</label><input id="ch-mp" type="number"></div>
+      <div><label>MP 최대</label><input id="ch-mpmax" type="number"></div>
+    </div>
+    <div class="row">
+      <div><label>SAN</label><input id="ch-san" type="number"></div>
+      <div><label>SAN 최대</label><input id="ch-sanmax" type="number"></div>
+    </div>
+    <label>능력치 / 스킬 / 메모</label>
+    <textarea id="ch-sheet" style="height:100px;" placeholder="자유롭게 적어 주세요 (예: 근력 60, 도주 50 ...)"></textarea>
+    <div class="actions" style="margin-top:14px;display:flex;gap:8px;">
+      <button class="primary" id="btn-save-char">저장</button>
+      <button class="ghost" id="btn-close-char">닫기</button>
+      <button class="ghost" id="btn-export-char">내보내기</button>
+      <button class="danger" id="btn-delete-char">삭제</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-stack" id="toast-stack"></div>
+
+<script>
+"use strict";
+
+/* ============================================================
+   0. 공통 유틸
+   ============================================================ */
+const $ = (sel, root) => (root || document).querySelector(sel);
+const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
+
+function toast(text) {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = text;
+  $('#toast-stack').appendChild(el);
+  setTimeout(() => el.remove(), 4200);
+}
+
+function uid8() {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+async function sha256Hex(text) {
+  const enc = new TextEncoder().encode(text);
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ============================================================
+   1. Firebase 초기화
+   ============================================================ */
+let app, auth, db, myUid = null, serverOffset = 0;
+
+function initFirebase() {
+  app = firebase.initializeApp(window.FIREBASE_CONFIG);
+  auth = firebase.auth();
+  db = firebase.database();
+  db.ref('.info/serverTimeOffset').on('value', snap => {
+    serverOffset = snap.val() || 0;
+  });
+}
+
+function serverNow() {
+  return Date.now() + serverOffset;
+}
+
+function ensureAuth() {
+  return new Promise((resolve, reject) => {
+    if (auth.currentUser) { myUid = auth.currentUser.uid; resolve(myUid); return; }
+    auth.onAuthStateChanged(u => {
+      if (u) { myUid = u.uid; resolve(myUid); }
+    });
+    auth.signInAnonymously().catch(reject);
+  });
+}
+
+/* ============================================================
+   2. 앱 상태
+   ============================================================ */
+const State = {
+  roomId: null,
+  roomName: '',
+  role: null,          // 'gm' | 'player'
+  nick: '',
+  gmHash: null,
+  playerHash: null,
+  myHash: null,
+  characters: {},
+  participants: {},    // uid -> {name, role}
+  currentChannel: 'general',
+  channels: {general: {name: '메인'}},
+  whisperTargets: new Set(),
+  board: {},
+  zoom: 1,
+  webrtcPeers: {},      // uid -> RTCPeerConnection (GM side, keyed by participant uid)
+  videoBlobUrl: null,
+  isVideoHost: false,
+};
+
+function roomRef(path) {
+  return db.ref('rooms/' + State.roomId + (path ? '/' + path : ''));
+}
+
+/* ============================================================
+   3. 방 만들기 / 참가하기
+   ============================================================ */
+$('#btn-create-room').addEventListener('click', async () => {
+  const msg = $('#cr-msg');
+  msg.className = 'msg'; msg.textContent = '';
+  const name = $('#cr-name').value.trim() || '이름 없는 방';
+  const ruleSystem = $('#cr-rule').value;
+  const gmPass = $('#cr-gmpass').value;
+  const playerPass = $('#cr-playerpass').value;
+  const nick = $('#cr-nick').value.trim() || '키퍼';
+
+  if (!gmPass || !playerPass) {
+    msg.className = 'msg err'; msg.textContent = 'GM 비밀번호와 참가자 비밀번호를 모두 입력해 주세요.';
+    return;
+  }
+  if (gmPass === playerPass) {
+    msg.className = 'msg err'; msg.textContent = 'GM 비밀번호와 참가자 비밀번호는 서로 달라야 합니다.';
+    return;
+  }
+
+  $('#btn-create-room').disabled = true;
+  try {
+    await ensureAuth();
+    const roomId = uid8() + uid8();
+    // 비밀번호 해시는 room이 방 코드(roomId) 자체를 salt로 써서 만든다.
+    // 참가 시(join)에도 같은 방식으로 계산해 서버 규칙이 값만 비교하면 되도록 맞춘다.
+    const gmHash = await sha256Hex(gmPass + ':' + roomId + ':' + roomId + ':gm');
+    const playerHash = await sha256Hex(playerPass + ':' + roomId + ':' + roomId + ':player');
+
+    await roomRefStatic(roomId, 'secret/gmHash').set(gmHash);
+    await roomRefStatic(roomId, 'secret/playerHash').set(playerHash);
+
+    // 가져올 기본 세팅 파일이 있으면 먼저 읽어 둔다
+    let importedPermanent = null;
+    const file = $('#cr-import').files[0];
+    if (file) {
+      try {
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+        if (parsed && parsed.permanent) importedPermanent = parsed.permanent;
+      } catch (e) {
+        toast('가져오기 파일을 읽지 못해 기본값으로 진행합니다.');
+      }
+    }
+
+    await roomRefStatic(roomId, 'meta').set({
+      name, ruleSystem, createdAt: firebase.database.ServerValue.TIMESTAMP
+    });
+
+    // 방을 만든 사람은 자동으로 GM 자격 획득
+    await roomRefStatic(roomId, 'roles/' + myUid).set(gmHash);
+
+    if (importedPermanent) {
+      await roomRefStatic(roomId, 'permanent').set(importedPermanent);
+    } else {
+      await roomRefStatic(roomId, 'permanent/channels/general').set({name: '메인'});
+    }
+
+    enterSession(roomId, 'gm', name, nick, gmHash);
+  } catch (e) {
+    console.error(e);
+    msg.className = 'msg err'; msg.textContent = '방을 만들지 못했습니다. Firebase 설정값을 확인해 주세요. (' + (e.message || e) + ')';
+  } finally {
+    $('#btn-create-room').disabled = false;
+  }
+});
+
+function roomRefStatic(roomId, path) {
+  return db.ref('rooms/' + roomId + (path ? '/' + path : ''));
+}
+
+$('#btn-join-room').addEventListener('click', async () => {
+  const msg = $('#jn-msg');
+  msg.className = 'msg'; msg.textContent = '';
+  const roomId = $('#jn-code').value.trim();
+  const pass = $('#jn-pass').value;
+  const nick = $('#jn-nick').value.trim() || '탐사자';
+
+  if (!roomId || !pass) {
+    msg.className = 'msg err'; msg.textContent = '방 코드와 비밀번호를 입력해 주세요.';
+    return;
+  }
+
+  $('#btn-join-room').disabled = true;
+  try {
+    await ensureAuth();
+    // 비밀번호 하나로 GM/탐사자 중 어느 쪽인지 판단한다: 두 해시를 순서대로 계산해서
+    // roles/{내uid}에 써 보고, 서버 규칙이 secret/gmHash·playerHash 중 하나와 일치할 때만
+    // 그 값의 저장(=역할 확정)을 허용한다. 일치하지 않으면 쓰기 자체가 거부된다.
+    let ok = false, role = null, usedHash = null;
+    for (const roleTry of ['gm', 'player']) {
+      const hash = await sha256Hex(pass + ':' + roomId + ':' + roomId + ':' + roleTry);
+      try {
+        await roomRefStatic(roomId, 'roles/' + myUid).set(hash);
+        ok = true; role = roleTry; usedHash = hash;
+        break;
+      } catch (e) { /* 비밀번호 불일치, 다음 역할로 시도 */ }
+    }
+    if (!ok) {
+      msg.className = 'msg err'; msg.textContent = '방 코드 또는 비밀번호가 올바르지 않습니다.';
+      $('#btn-join-room').disabled = false;
+      return;
+    }
+    const metaSnap = await roomRefStatic(roomId, 'meta').get();
+    const meta = metaSnap.val() || {};
+    enterSession(roomId, role, meta.name || roomId, nick, usedHash);
+  } catch (e) {
+    console.error(e);
+    msg.className = 'msg err'; msg.textContent = '입장하지 못했습니다. (' + (e.message || e) + ')';
+  } finally {
+    $('#btn-join-room').disabled = false;
+  }
+});
+
+/* ============================================================
+   セッション 진입
+   ============================================================ */
+function enterSession(roomId, role, roomName, nick, myHash) {
+  State.roomId = roomId;
+  State.role = role;
+  State.roomName = roomName;
+  State.nick = nick;
+  State.myHash = myHash;
+  State.isVideoHost = (role === 'gm');
+
+  $('#view-landing').style.display = 'none';
+  $('#view-session').classList.add('active');
+  $('#tb-room-name').textContent = roomName;
+  const badge = $('#tb-role');
+  badge.textContent = role === 'gm' ? 'GM (키퍼)' : '탐사자';
+  badge.className = 'role-badge ' + role;
+  $('#tb-room-code').textContent = '방 코드: ' + roomId;
+
+  if (role !== 'gm') {
+    $('#gm-nav-sep').style.display = 'none';
+    $('#gm-nav-label').style.display = 'none';
+    $$('.nav-btn[data-tab="gmnotes"], .nav-btn[data-tab="settings"]').forEach(b => b.style.display = 'none');
+    $('#gm-bgm-controls').style.display = 'none';
+    $('#gm-video-controls').style.display = 'none';
+    $('#gm-video-transport').style.display = 'none';
+    $('#gm-progress-table').style.display = 'none';
+    $('#gm-handout-editor').style.display = 'none';
+    $('#btn-set-bg').style.display = 'none';
+    $('#btn-add-image').style.display = 'none';
+  } else {
+    $('#player-video-fallback').style.display = 'none';
+  }
+
+  // presence
+  const pref = roomRef('presence/' + myUid);
+  pref.set({name: nick, role, connectedAt: firebase.database.ServerValue.TIMESTAMP});
+  pref.onDisconnect().remove();
+
+  history.replaceState(null, '', '#' + roomId);
+
+  bindRoomListeners();
+}
+
+/* ============================================================
+   4. 탭 전환
+   ============================================================ */
+$$('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    $$('.nav-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    $$('.tab-panel').forEach(p => p.classList.remove('active'));
+    $('#panel-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+$('#btn-leave').addEventListener('click', () => location.reload());
+
+$('#btn-copy-link').addEventListener('click', () => {
+  const url = location.origin + location.pathname + '#' + State.roomId;
+  navigator.clipboard.writeText(url).then(() => toast('링크를 복사했습니다.'));
+});
+
+/* ============================================================
+   5. 실시간 리스너 바인딩
+   ============================================================ */
+function bindRoomListeners() {
+  // 참가자 목록
+  roomRef('presence').on('value', snap => {
+    State.participants = snap.val() || {};
+    renderRoster();
+    renderWhisperPicker();
+    renderVideoProgressTable();
+  });
+
+  // 채널
+  roomRef('permanent/channels').on('value', snap => {
+    State.channels = snap.val() || {general: {name: '메인'}};
+    renderChannelSelect();
+  });
+
+  // 채팅 (공개 채팅 + 내 귓속말 수신함을 각각 구독해서 합쳐 표시한다.
+  // GM은 서버 규칙상 방 전체 권한이 있어 모든 사람의 귓속말도 조회할 수 있지만,
+  // 이 화면에서는 우선 '내 수신함'만 구독한다 — GM 전용 열람 화면은 8.2 이후 확장 지점.)
+  roomRef('session/chatPublic').on('value', snap => {
+    State._chatPublic = snap.val() || {};
+    renderChat();
+  });
+  roomRef('session/chatWhisper/' + myUid).on('value', snap => {
+    State._chatWhisperMine = snap.val() || {};
+    renderChat();
+  });
+
+  // 캐릭터
+  roomRef('session/characters').on('value', snap => {
+    State.characters = snap.val() || {};
+    renderCharacters();
+  });
+
+  // 보드 배경 + 이미지
+  roomRef('permanent/background').on('value', snap => {
+    const bg = $('#board-bg');
+    if (snap.val()) { bg.src = snap.val(); bg.style.display = 'block'; }
+    else { bg.style.display = 'none'; }
+  });
+  roomRef('permanent/board').on('value', snap => {
+    State.board = snap.val() || {};
+    renderBoard();
+  });
+
+  // BGM
+  roomRef('permanent/bgm').on('value', snap => {
+    renderBgm(snap.val() || {list: {}, current: null, playing: false});
+  });
+
+  // 핸드아웃
+  roomRef('permanent/handoutsPublished').on('value', snap => {
+    renderHandouts(snap.val() || {});
+  });
+  if (State.role === 'gm') {
+    roomRef('permanent/handoutsDraft').on('value', snap => {
+      renderHandoutDrafts(snap.val() || {});
+    });
+    roomRef('permanent/gmNotes').on('value', snap => {
+      const ta = $('#gm-notes-text');
+      if (document.activeElement !== ta) ta.value = snap.val() || '';
+    });
+  }
+
+  // 영상 제어 신호
+  roomRef('session/mp4/control').on('value', snap => {
+    applyVideoControl(snap.val());
+  });
+  roomRef('session/mp4/progress').on('value', snap => {
+    State.videoProgress = snap.val() || {};
+    renderVideoProgressTable();
+  });
+
+  if (State.role === 'gm') {
+    // 참가자가 들어오면 GM이 먼저 신호를 보내는 구조라, 새 participant를 감지해 offer 생성
+    roomRef('presence').on('child_added', snap => {
+      const uid = snap.key;
+      if (uid !== myUid) maybeConnectToPeer(uid);
+    });
+  } else {
+    // 참가자는 자신에게 온 offer를 기다린다
+    roomRef('session/webrtc/' + myUid).on('child_added', snap => {
+      handleIncomingSignal(snap.key, snap.val());
+    });
+    roomRef('session/webrtc/' + myUid).on('child_changed', snap => {
+      handleIncomingSignal(snap.key, snap.val());
+    });
+  }
+}
+
+/* ============================================================
+   6. 채팅
+   ============================================================ */
+function renderChannelSelect() {
+  const sel = $('#chat-channel');
+  const cur = sel.value || State.currentChannel;
+  sel.innerHTML = '';
+  Object.entries(State.channels).forEach(([id, ch]) => {
+    const opt = document.createElement('option');
+    opt.value = id; opt.textContent = ch.name || id;
+    sel.appendChild(opt);
+  });
+  sel.value = State.channels[cur] ? cur : 'general';
+  State.currentChannel = sel.value;
+}
+$('#chat-channel').addEventListener('change', e => { State.currentChannel = e.target.value; renderChat(); });
+
+function renderRoster() {
+  const box = $('#roster-list');
+  box.innerHTML = '';
+  Object.entries(State.participants).forEach(([uid, p]) => {
+    const div = document.createElement('div');
+    div.className = 'p';
+    div.innerHTML = '<span><span class="dot"></span>' + esc(p.name) + '</span><span style="color:var(--muted);font-size:11px;">' + (p.role === 'gm' ? 'GM' : '탐사자') + '</span>';
+    box.appendChild(div);
+  });
+}
+
+function renderWhisperPicker() {
+  const box = $('#whisper-picker');
+  box.innerHTML = '';
+  Object.entries(State.participants).forEach(([uid, p]) => {
+    if (uid === myUid) return;
+    const lb = document.createElement('label');
+    const checked = State.whisperTargets.has(uid) ? 'checked' : '';
+    lb.innerHTML = '<input type="checkbox" data-uid="' + uid + '" ' + checked + ' style="width:auto;"> ' + esc(p.name);
+    box.appendChild(lb);
+  });
+  $$('#whisper-picker input').forEach(cb => {
+    cb.addEventListener('change', () => {
+      if (cb.checked) State.whisperTargets.add(cb.dataset.uid);
+      else State.whisperTargets.delete(cb.dataset.uid);
+    });
+  });
+}
+
+$('#btn-toggle-whisper').addEventListener('click', () => {
+  $('#whisper-picker').classList.toggle('active');
+});
+
+function mergedChatEntries() {
+  const pub = Object.entries(State._chatPublic || {}).map(([id, m]) => [id, m]);
+  const whisper = Object.entries(State._chatWhisperMine || {}).map(([id, m]) => [id, m]);
+  const seen = new Set();
+  const all = [];
+  pub.forEach(([id, m]) => { if (!seen.has(id)) { seen.add(id); all.push([id, m]); } });
+  whisper.forEach(([id, m]) => { if (!seen.has(id)) { seen.add(id); all.push([id, m]); } });
+  return all.sort((a, b) => (a[1].ts || 0) - (b[1].ts || 0));
+}
+
+function renderChat() {
+  const list = $('#chat-list');
+  const atBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 40;
+  const entries = mergedChatEntries().filter(([id, m]) => m.channel === State.currentChannel);
+  list.innerHTML = '';
+  entries.forEach(([id, m]) => {
+    const div = document.createElement('div');
+    let cls = 'chat-msg';
+    if (m.to) cls += ' whisper';
+    if (m.dice) cls += ' dice';
+    div.className = cls;
+    const toLabel = m.to ? ' <span class="tag">(귓속말 → ' + Object.keys(m.to).filter(u => u !== m.from).map(u => esc((State.participants[u]||{}).name || '?')).join(', ') + ')</span>' : '';
+    div.innerHTML = '<div class="who">' + esc(m.name || '??') + toLabel + '</div><div class="body">' + esc(m.text || '') + '</div>';
+    list.appendChild(div);
+  });
+  if (atBottom) list.scrollTop = list.scrollHeight;
+}
+
+async function sendChat(text, diceMeta) {
+  if (!text || !text.trim()) return;
+  const base = {
+    from: myUid,
+    name: State.nick,
+    channel: State.currentChannel,
+    text: text,
+    ts: firebase.database.ServerValue.TIMESTAMP
+  };
+  if (diceMeta) base.dice = true;
+
+  if (State.whisperTargets.size > 0) {
+    // 귓속말은 받는 사람 각자의 개인 수신함에 같은 내용을 나눠 쓴다(팬아웃).
+    // 이렇게 하면 서버 규칙이 "자기 수신함만 읽을 수 있다"는 조건 하나로 열람을 제한할 수 있다.
+    // GM은 방 전체에 대한 서버 권한이 있어 모든 수신함을 볼 수 있다.
+    const recipients = new Set(State.whisperTargets);
+    recipients.add(myUid);
+    const to = {};
+    recipients.forEach(u => to[u] = true);
+    const payload = Object.assign({}, base, {to});
+    const msgId = 'w' + Date.now().toString(36) + uid8();
+    const writes = {};
+    recipients.forEach(uid => { writes['session/chatWhisper/' + uid + '/' + msgId] = payload; });
+    await roomRef('').update(writes);
+  } else {
+    await roomRef('session/chatPublic').push(base);
+  }
+}
+
+$('#btn-send-chat').addEventListener('click', () => {
+  sendChat($('#chat-input').value);
+  $('#chat-input').value = '';
+});
+$('#chat-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendChat($('#chat-input').value);
+    $('#chat-input').value = '';
+  }
+});
+
+$('#btn-download-log').addEventListener('click', () => {
+  const lines = mergedChatEntries().map(([id, m]) => '[' + (m.channel||'') + '] ' + (m.name||'') + (m.to?'(귓속말)':'') + ': ' + (m.text||''));
+  const blob = new Blob([lines.join('\n')], {type: 'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '채팅기록_' + State.roomId + '.txt';
+  a.click();
+});
+
+/* ============================================================
+   7. 다이스 / 판정
+   ============================================================ */
+function rollNdM(n, m) {
+  const rolls = [];
+  for (let i = 0; i < n; i++) rolls.push(1 + Math.floor(Math.random() * m));
+  return rolls;
+}
+
+$('#btn-open-dice').addEventListener('click', () => $('#modal-dice').classList.add('active'));
+$('#btn-close-dice').addEventListener('click', () => $('#modal-dice').classList.remove('active'));
+$('#btn-roll-dice').addEventListener('click', () => {
+  const expr = $('#dice-expr').value.trim();
+  const match = expr.match(/^(\d+)[dD](\d+)\s*([+-]\s*\d+)?$/);
+  if (!match) { toast('표기를 확인해 주세요. 예: 2d6+3'); return; }
+  const n = parseInt(match[1], 10), m = parseInt(match[2], 10);
+  const mod = match[3] ? parseInt(match[3].replace(/\s/g, ''), 10) : 0;
+  if (n > 100 || m > 1000) { toast('숫자가 너무 큽니다.'); return; }
+  const rolls = rollNdM(n, m);
+  const sum = rolls.reduce((a, b) => a + b, 0) + mod;
+  const text = expr + ' → [' + rolls.join(', ') + ']' + (mod ? (mod > 0 ? ' +' + mod : ' ' + mod) : '') + ' = ' + sum;
+  sendChat(text, true);
+  $('#modal-dice').classList.remove('active');
+});
+
+$('#btn-open-check').addEventListener('click', () => $('#modal-check').classList.add('active'));
+$('#btn-close-check').addEventListener('click', () => $('#modal-check').classList.remove('active'));
+$('#btn-roll-check').addEventListener('click', () => {
+  const target = Math.max(1, Math.min(99, parseInt($('#check-target').value, 10) || 50));
+  const bonus = parseInt($('#check-bonus').value, 10);
+  const tens = rollNdM(1 + Math.abs(bonus), 10).map(v => v - 1); // 0~9
+  const ones = 1 + Math.floor(Math.random() * 10) - 1; // 0~9 (일의 자리 1개)
+  let chosenTens;
+  if (bonus > 0) chosenTens = Math.min(...tens);
+  else if (bonus < 0) chosenTens = Math.max(...tens);
+  else chosenTens = tens[0];
+  let roll = chosenTens * 10 + ones;
+  if (roll === 0) roll = 100;
+
+  let grade;
+  if (roll === 1) grade = '극단적 성공 (크리티컬)';
+  else if (roll <= Math.floor(target / 5)) grade = '극단적 성공';
+  else if (roll <= Math.floor(target / 2)) grade = '어려운 성공';
+  else if (roll <= target) grade = '성공';
+  else if (roll >= 100) grade = '대실패 (펌블)';
+  else if (target < 50 && roll >= 96) grade = '대실패 (펌블)';
+  else grade = '실패';
+
+  const text = '판정 (목표 ' + target + (bonus ? ', ' + (bonus > 0 ? '보너스' : '페널티') + ' ' + Math.abs(bonus) : '') + ') → ' + roll + ' : ' + grade;
+  sendChat(text, true);
+  $('#modal-check').classList.remove('active');
+});
+
+/* ============================================================
+   8. 캐릭터
+   ============================================================ */
+let editingCharId = null;
+
+function renderCharacters() {
+  const grid = $('#char-grid');
+  grid.innerHTML = '';
+  Object.entries(State.characters).forEach(([id, c]) => {
+    const mine = c.owner === myUid || State.role === 'gm';
+    const div = document.createElement('div');
+    div.className = 'char-card';
+    div.innerHTML =
+      (c.image ? '<img src="' + esc(c.image) + '">' : '') +
+      '<div class="name">' + esc(c.name || '이름 없음') + (mine ? ' <span class="own-badge">' + (c.owner===myUid?'내 캐릭터':'') + '</span>' : '') + '</div>' +
+      statRow('HP', c.hp, c.hpMax, id, 'hp', mine) +
+      statRow('MP', c.mp, c.mpMax, id, 'mp', mine) +
+      statRow('SAN', c.san, c.sanMax, id, 'san', mine) +
+      '<div class="row" style="margin-top:8px;"><button class="ghost btn-edit-char" data-id="' + id + '">' + (mine ? '수정' : '보기') + '</button></div>';
+    grid.appendChild(div);
+  });
+  $$('.btn-edit-char').forEach(b => b.addEventListener('click', () => openCharModal(b.dataset.id)));
+  $$('.stat-input').forEach(inp => {
+    inp.addEventListener('change', () => {
+      const {id, field} = inp.dataset;
+      const c = State.characters[id];
+      if (!c || (c.owner !== myUid && State.role !== 'gm')) return;
+      roomRef('session/characters/' + id + '/' + field).set(parseInt(inp.value, 10) || 0);
+    });
+  });
+}
+
+function statRow(label, val, max, id, field, editable) {
+  return '<div class="stat-row"><span>' + label + '</span><span>' +
+    (editable ? '<input class="stat-input" type="number" data-id="'+id+'" data-field="'+field+'" value="'+(val==null?0:val)+'">' : (val==null?'-':val)) +
+    ' / ' + (max == null ? '-' : max) + '</span></div>';
+}
+
+$('#btn-new-char').addEventListener('click', () => openCharModal(null));
+function openCharModal(id) {
+  editingCharId = id;
+  const c = id ? State.characters[id] : {owner: myUid, name: '', image: '', hp: 10, hpMax: 10, mp: 10, mpMax: 10, san: 50, sanMax: 99, sheet: ''};
+  const mine = !id || c.owner === myUid || State.role === 'gm';
+  $('#char-modal-title').textContent = id ? '캐릭터 수정' : '새 캐릭터';
+  $('#ch-name').value = c.name || '';
+  $('#ch-image').value = c.image || '';
+  $('#ch-hp').value = c.hp ?? '';
+  $('#ch-hpmax').value = c.hpMax ?? '';
+  $('#ch-mp').value = c.mp ?? '';
+  $('#ch-mpmax').value = c.mpMax ?? '';
+  $('#ch-san').value = c.san ?? '';
+  $('#ch-sanmax').value = c.sanMax ?? '';
+  $('#ch-sheet').value = c.sheet || '';
+  $$('#modal-char input, #modal-char textarea').forEach(el => el.disabled = !mine);
+  $('#btn-save-char').style.display = mine ? '' : 'none';
+  $('#btn-delete-char').style.display = (id && mine) ? '' : 'none';
+  $('#btn-export-char').style.display = id ? '' : 'none';
+  $('#modal-char').classList.add('active');
+}
+$('#btn-close-char').addEventListener('click', () => $('#modal-char').classList.remove('active'));
+
+$('#btn-save-char').addEventListener('click', async () => {
+  const data = {
+    owner: myUid,
+    name: $('#ch-name').value.trim() || '이름 없음',
+    image: $('#ch-image').value.trim(),
+    hp: parseInt($('#ch-hp').value, 10) || 0,
+    hpMax: parseInt($('#ch-hpmax').value, 10) || 0,
+    mp: parseInt($('#ch-mp').value, 10) || 0,
+    mpMax: parseInt($('#ch-mpmax').value, 10) || 0,
+    san: parseInt($('#ch-san').value, 10) || 0,
+    sanMax: parseInt($('#ch-sanmax').value, 10) || 0,
+    sheet: $('#ch-sheet').value,
+    updatedAt: firebase.database.ServerValue.TIMESTAMP
+  };
+  if (editingCharId && State.characters[editingCharId] && State.characters[editingCharId].owner !== myUid) {
+    data.owner = State.characters[editingCharId].owner; // GM이 수정해도 소유자는 유지
+  }
+  const id = editingCharId || roomRef('session/characters').push().key;
+  await roomRef('session/characters/' + id).set(data);
+  $('#modal-char').classList.remove('active');
+});
+
+$('#btn-delete-char').addEventListener('click', async () => {
+  if (!editingCharId) return;
+  if (!confirm('이 캐릭터를 삭제할까요?')) return;
+  await roomRef('session/characters/' + editingCharId).remove();
+  $('#modal-char').classList.remove('active');
+});
+
+$('#btn-export-char').addEventListener('click', () => {
+  if (!editingCharId) return;
+  const c = State.characters[editingCharId];
+  const blob = new Blob([JSON.stringify({character: c}, null, 2)], {type: 'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (c.name || 'character') + '.json';
+  a.click();
+});
+
+$('#btn-import-char').addEventListener('click', () => $('#char-import-input').click());
+$('#char-import-input').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const parsed = JSON.parse(await file.text());
+    const c = parsed.character || parsed;
+    c.owner = myUid;
+    c.updatedAt = firebase.database.ServerValue.TIMESTAMP;
+    const id = roomRef('session/characters').push().key;
+    await roomRef('session/characters/' + id).set(c);
+    toast('캐릭터를 가져왔습니다.');
+  } catch (err) {
+    toast('가져오기에 실패했습니다. 파일 형식을 확인해 주세요.');
+  }
+  e.target.value = '';
+});
+
+/* ============================================================
+   9. 스크린 / 보드
+   ============================================================ */
+function renderBoard() {
+  const stage = $('#board-stage');
+  $$('.token', stage).forEach(t => t.remove());
+  Object.entries(State.board).forEach(([id, img]) => {
+    const t = document.createElement('div');
+    t.className = 'token';
+    t.style.left = (img.x || 0) + 'px';
+    t.style.top = (img.y || 0) + 'px';
+    t.style.width = (img.w || 120) + 'px';
+    t.style.height = (img.h || 120) + 'px';
+    t.dataset.id = id;
+    t.innerHTML = '<img src="' + esc(img.url) + '">';
+    if (State.role === 'gm') {
+      const del = document.createElement('button');
+      del.textContent = '×';
+      del.className = 'ghost';
+      del.style.cssText = 'position:absolute;top:-10px;right:-10px;width:22px;height:22px;padding:0;line-height:1;border-radius:50%;';
+      del.addEventListener('click', ev => { ev.stopPropagation(); roomRef('permanent/board/' + id).remove(); });
+      t.appendChild(del);
+    }
+    makeDraggable(t, id);
+    stage.appendChild(t);
+  });
+}
+
+function makeDraggable(el, id) {
+  let dragging = false, startX, startY, origX, origY;
+  el.addEventListener('pointerdown', e => {
+    if (e.target.tagName === 'BUTTON') return;
+    dragging = true;
+    el.classList.add('dragging');
+    el.setPointerCapture(e.pointerId);
+    startX = e.clientX; startY = e.clientY;
+    origX = parseFloat(el.style.left); origY = parseFloat(el.style.top);
+  });
+  el.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    const dx = (e.clientX - startX) / State.zoom;
+    const dy = (e.clientY - startY) / State.zoom;
+    el.style.left = (origX + dx) + 'px';
+    el.style.top = (origY + dy) + 'px';
+  });
+  el.addEventListener('pointerup', () => {
+    if (!dragging) return;
+    dragging = false;
+    el.classList.remove('dragging');
+    const img = State.board[id] || {};
+    roomRef('permanent/board/' + id).update({
+      url: img.url, w: img.w || 120, h: img.h || 120,
+      x: Math.round(parseFloat(el.style.left)),
+      y: Math.round(parseFloat(el.style.top))
+    });
+  });
+}
+
+$('#btn-set-bg').addEventListener('click', () => {
+  const url = prompt('배경 이미지 링크(URL)를 입력하세요. 비워 두면 배경을 지웁니다.');
+  if (url === null) return;
+  roomRef('permanent/background').set(url.trim());
+});
+
+$('#btn-add-image').addEventListener('click', () => {
+  const url = prompt('추가할 이미지 링크(URL)를 입력하세요.');
+  if (!url) return;
+  const id = roomRef('permanent/board').push().key;
+  roomRef('permanent/board/' + id).set({url: url.trim(), x: 40, y: 40, w: 120, h: 120});
+});
+
+$('#zoom-slider').addEventListener('input', e => {
+  State.zoom = parseInt(e.target.value, 10) / 100;
+  $('#board-stage').style.transform = 'scale(' + State.zoom + ')';
+  $('#zoom-label').textContent = e.target.value + '%';
+});
+
+$('#chk-grid').addEventListener('change', e => {
+  $('#board-viewport').classList.toggle('no-grid', !e.target.checked);
+});
+
+/* ============================================================
+   10. BGM
+   ============================================================ */
+function renderBgm(bgm) {
+  const list = bgm.list || {};
+  const ul = $('#track-list');
+  ul.innerHTML = '';
+  Object.entries(list).forEach(([id, t]) => {
+    const li = document.createElement('li');
+    if (id === bgm.current) li.classList.add('current');
+    li.innerHTML = '<span class="title">' + esc(t.title) + '</span>';
+    if (State.role === 'gm') {
+      const playBtn = document.createElement('button');
+      playBtn.className = 'ghost';
+      playBtn.textContent = (id === bgm.current && bgm.playing) ? '일시정지' : '재생';
+      playBtn.addEventListener('click', () => {
+        if (id === bgm.current && bgm.playing) {
+          roomRef('permanent/bgm/playing').set(false);
+        } else {
+          roomRef('permanent/bgm').update({current: id, playing: true});
+        }
+      });
+      const delBtn = document.createElement('button');
+      delBtn.className = 'ghost'; delBtn.textContent = '삭제';
+      delBtn.addEventListener('click', () => roomRef('permanent/bgm/list/' + id).remove());
+      li.appendChild(playBtn); li.appendChild(delBtn);
+    }
+    ul.appendChild(li);
+  });
+
+  const audio = $('#bgm-audio');
+  const current = bgm.current ? list[bgm.current] : null;
+  if (current) {
+    if (audio.dataset.trackId !== bgm.current) {
+      audio.src = current.url;
+      audio.dataset.trackId = bgm.current;
+    }
+    if (bgm.playing) audio.play().catch(() => {});
+    else audio.pause();
+  } else {
+    audio.pause(); audio.removeAttribute('src'); audio.dataset.trackId = '';
+  }
+}
+
+$('#btn-add-track').addEventListener('click', () => {
+  const title = $('#bgm-title').value.trim();
+  const url = $('#bgm-url').value.trim();
+  if (!title || !url) { toast('곡 이름과 링크를 입력해 주세요.'); return; }
+  const id = roomRef('permanent/bgm/list').push().key;
+  roomRef('permanent/bgm/list/' + id).set({title, url});
+  $('#bgm-title').value = ''; $('#bgm-url').value = '';
+});
+
+$('#bgm-volume').addEventListener('input', e => {
+  $('#bgm-audio').volume = parseInt(e.target.value, 10) / 100;
+});
+$('#bgm-audio').volume = 0.6;
+
+/* ============================================================
+   11. mp4 P2P 동시 재생
+   ============================================================ */
+const ICE_SERVERS = {iceServers: [{urls: 'stun:stun.l.google.com:19302'}]};
+const CHUNK_SIZE = 64 * 1024;
+
+// ---- GM 쪽: 각 참가자에게 연결을 만들고 파일을 전송 ----
+State.pendingFile = null;
+
+$('#video-file-input').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  State.pendingFile = file;
+  const url = URL.createObjectURL(file);
+  $('#video-el').src = url;
+  toast('영상을 불러왔습니다. 참가자에게 전송을 시작합니다.');
+  Object.keys(State.participants).forEach(uid => {
+    if (uid !== myUid) sendFileToPeer(uid, file);
+  });
+});
+
+$('#btn-video-load-url').addEventListener('click', () => {
+  const url = $('#video-url-input').value.trim();
+  if (!url) return;
+  $('#video-el').src = url;
+  roomRef('session/mp4/control').set({action: 'source', url, atServerTime: firebase.database.ServerValue.TIMESTAMP});
+});
+
+function maybeConnectToPeer(uid) {
+  if (!State.pendingFile) return; // 아직 올린 영상이 없으면 대기
+  sendFileToPeer(uid, State.pendingFile);
+}
+
+function sendFileToPeer(uid, file) {
+  const pc = new RTCPeerConnection(ICE_SERVERS);
+  State.webrtcPeers[uid] = pc;
+  const dc = pc.createDataChannel('file');
+  dc.binaryType = 'arraybuffer';
+
+  pc.onicecandidate = e => {
+    if (e.candidate) roomRef('session/webrtc/' + uid + '/' + myUid + '/candidatesFromGm').push(e.candidate.toJSON());
+  };
+
+  dc.onopen = () => {
+    setProgress(uid, 0, 'transferring');
+    streamFile(dc, file, uid);
+  };
+  dc.onerror = () => setProgress(uid, 0, 'failed');
+
+  roomRef('session/webrtc/' + uid + '/' + myUid + '/candidatesToGm').on('child_added', snap => {
+    pc.addIceCandidate(new RTCIceCandidate(snap.val())).catch(() => {});
+  });
+  roomRef('session/webrtc/' + uid + '/' + myUid + '/answer').on('value', snap => {
+    if (snap.val() && !pc.currentRemoteDescription) {
+      pc.setRemoteDescription(new RTCSessionDescription(snap.val())).catch(() => {});
+    }
+  });
+
+  pc.createOffer().then(offer => pc.setLocalDescription(offer)).then(() => {
+    roomRef('session/webrtc/' + uid + '/' + myUid + '/offer').set(pc.localDescription.toJSON());
+  });
+}
+
+async function streamFile(dc, file, uid) {
+  const buf = await file.arrayBuffer();
+  const total = buf.byteLength;
+  dc.send(JSON.stringify({type: 'meta', size: total, name: file.name}));
+  let offset = 0;
+  function sendChunk() {
+    while (offset < total) {
+      if (dc.bufferedAmount > 8 * CHUNK_SIZE) {
+        dc.onbufferedamountlow = () => { dc.onbufferedamountlow = null; sendChunk(); };
+        return;
+      }
+      const slice = buf.slice(offset, offset + CHUNK_SIZE);
+      dc.send(slice);
+      offset += slice.byteLength;
+      setProgress(uid, Math.round(offset / total * 100), 'transferring');
+    }
+    setProgress(uid, 100, 'ready');
+  }
+  dc.bufferedAmountLowThreshold = 4 * CHUNK_SIZE;
+  sendChunk();
+}
+
+function setProgress(uid, percent, status) {
+  roomRef('session/mp4/progress/' + uid).set({percent, status});
+}
+
+// ---- 참가자 쪽: GM의 offer를 받아 응답하고 파일을 수신 ----
+let incomingBuf = null, incomingMeta = null, incomingReceived = 0;
+
+function handleIncomingSignal(fromUid, node) {
+  if (!node) return;
+  if (node.offer && !State._pc) {
+    const pc = new RTCPeerConnection(ICE_SERVERS);
+    State._pc = pc;
+    pc.onicecandidate = e => {
+      if (e.candidate) roomRef('session/webrtc/' + fromUid + '/' + myUid + '/candidatesToGm').push(e.candidate.toJSON());
+    };
+    pc.ondatachannel = ev => {
+      const dc = ev.channel;
+      dc.binaryType = 'arraybuffer';
+      dc.onmessage = e => onFileMessage(e.data);
+    };
+    pc.setRemoteDescription(new RTCSessionDescription(node.offer))
+      .then(() => pc.createAnswer())
+      .then(answer => pc.setLocalDescription(answer))
+      .then(() => {
+        roomRef('session/webrtc/' + fromUid + '/' + myUid + '/answer').set(pc.localDescription.toJSON());
+      });
+    roomRef('session/webrtc/' + fromUid + '/' + myUid + '/candidatesFromGm').on('child_added', snap => {
+      pc.addIceCandidate(new RTCIceCandidate(snap.val())).catch(() => {});
+    });
+  }
+}
+
+function onFileMessage(data) {
+  if (typeof data === 'string') {
+    const meta = JSON.parse(data);
+    if (meta.type === 'meta') {
+      incomingMeta = meta;
+      incomingBuf = new Uint8Array(meta.size);
+      incomingReceived = 0;
+    }
+    return;
+  }
+  const chunk = new Uint8Array(data);
+  incomingBuf.set(chunk, incomingReceived);
+  incomingReceived += chunk.byteLength;
+  const percent = Math.round(incomingReceived / incomingMeta.size * 100);
+  roomRef('session/mp4/progress/' + myUid).set({percent, status: percent >= 100 ? 'ready' : 'transferring'});
+  if (incomingReceived >= incomingMeta.size) {
+    const blob = new Blob([incomingBuf], {type: 'video/mp4'});
+    if (State.videoBlobUrl) URL.revokeObjectURL(State.videoBlobUrl);
+    State.videoBlobUrl = URL.createObjectURL(blob);
+    $('#video-el').src = State.videoBlobUrl;
+  }
+}
+
+$('#video-local-input').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  $('#video-el').src = url;
+  roomRef('session/mp4/progress/' + myUid).set({percent: 100, status: 'ready'});
+});
+
+// ---- 재생 동기화 ----
+$('#btn-video-play').addEventListener('click', () => {
+  const video = $('#video-el');
+  roomRef('session/mp4/control').set({
+    action: 'play', atServerTime: firebase.database.ServerValue.TIMESTAMP, atVideoTime: video.currentTime || 0
+  });
+});
+$('#btn-video-pause').addEventListener('click', () => {
+  const video = $('#video-el');
+  roomRef('session/mp4/control').set({
+    action: 'pause', atServerTime: firebase.database.ServerValue.TIMESTAMP, atVideoTime: video.currentTime || 0
+  });
+});
+$('#btn-video-stop').addEventListener('click', () => {
+  roomRef('session/mp4/control').set({action: 'stop', atServerTime: firebase.database.ServerValue.TIMESTAMP, atVideoTime: 0});
+});
+
+let driftTimer = null;
+function applyVideoControl(control) {
+  const video = $('#video-el');
+  if (!control) return;
+  if (control.action === 'stop') {
+    video.pause(); video.removeAttribute('src');
+    if (driftTimer) clearInterval(driftTimer);
+    return;
+  }
+  if (control.action === 'source') {
+    if (video.src !== control.url) video.src = control.url;
+    return;
+  }
+  const elapsed = control.action === 'play' ? (serverNow() - control.atServerTime) / 1000 : 0;
+  const target = (control.atVideoTime || 0) + Math.max(0, elapsed);
+
+  if (Math.abs((video.currentTime || 0) - target) > 0.4) video.currentTime = target;
+
+  if (control.action === 'play') {
+    video.play().catch(() => {});
+    if (driftTimer) clearInterval(driftTimer);
+    driftTimer = setInterval(() => {
+      const exp = (control.atVideoTime || 0) + (serverNow() - control.atServerTime) / 1000;
+      const diff = exp - video.currentTime;
+      if (Math.abs(diff) > 0.5) video.currentTime = exp;
+      else video.playbackRate = Math.min(1.05, Math.max(0.95, 1 + diff * 0.4));
+    }, 1500);
+  } else if (control.action === 'pause') {
+    video.pause();
+    video.currentTime = control.atVideoTime || 0;
+    if (driftTimer) clearInterval(driftTimer);
+  }
+}
+
+function renderVideoProgressTable() {
+  const body = $('#progress-body');
+  body.innerHTML = '';
+  const progress = State.videoProgress || {};
+  Object.entries(State.participants).forEach(([uid, p]) => {
+    if (uid === myUid) return;
+    const pr = progress[uid] || {percent: 0, status: '대기 중'};
+    const tr = document.createElement('tr');
+    const statusClass = pr.status === 'ready' ? 'ready' : pr.status === 'failed' ? 'failed' : pr.status === 'transferring' ? 'transferring' : '';
+    tr.innerHTML = '<td>' + esc(p.name) + '</td>' +
+      '<td><span class="status-pill ' + statusClass + '">' + esc(labelStatus(pr.status)) + '</span></td>' +
+      '<td><div class="progress-bar"><div style="width:' + (pr.percent||0) + '%"></div></div></td>';
+    body.appendChild(tr);
+  });
+}
+function labelStatus(s) {
+  return {ready: '준비 완료', transferring: '전송 중', failed: '연결 실패'}[s] || '대기 중';
+}
+
+/* ============================================================
+   12. 핸드아웃 / GM 메모
+   ============================================================ */
+function renderHandouts(data) {
+  $('#handout-hint').style.display = State.role === 'gm' ? 'none' : '';
+  const box = $('#handout-list');
+  box.innerHTML = '<div class="section-title" style="font-size:13px;color:var(--muted);margin-bottom:8px;">공개된 자료</div>';
+  Object.entries(data).forEach(([id, h]) => {
+    const div = document.createElement('div');
+    div.className = 'handout-card';
+    div.innerHTML = '<h4>' + esc(h.title) + '</h4><div>' + esc(h.body).replace(/\n/g, '<br>') + '</div>' +
+      (h.imageUrl ? '<img src="' + esc(h.imageUrl) + '">' : '');
+    box.appendChild(div);
+  });
+}
+
+function renderHandoutDrafts(data) {
+  const box = $('#handout-list');
+  const draftTitle = document.createElement('div');
+  draftTitle.className = 'section-title';
+  draftTitle.style.cssText = 'font-size:13px;color:var(--muted);margin:16px 0 8px;';
+  draftTitle.textContent = '초안 (GM만 보임)';
+  box.appendChild(draftTitle);
+  Object.entries(data).forEach(([id, h]) => {
+    const div = document.createElement('div');
+    div.className = 'handout-card';
+    div.innerHTML = '<h4>' + esc(h.title) + '</h4><div>' + esc(h.body).replace(/\n/g, '<br>') + '</div>';
+    const btn = document.createElement('button');
+    btn.className = 'primary'; btn.textContent = '공개'; btn.style.marginTop = '8px';
+    btn.addEventListener('click', async () => {
+      await roomRef('permanent/handoutsPublished/' + id).set(h);
+      await roomRef('permanent/handoutsDraft/' + id).remove();
+    });
+    div.appendChild(btn);
+    box.appendChild(div);
+  });
+}
+
+$('#btn-publish-handout').addEventListener('click', () => {
+  const title = $('#ho-title').value.trim();
+  const body = $('#ho-body').value.trim();
+  const imageUrl = $('#ho-image').value.trim();
+  if (!title) { toast('제목을 입력해 주세요.'); return; }
+  const id = roomRef('permanent/handoutsPublished').push().key;
+  roomRef('permanent/handoutsPublished/' + id).set({title, body, imageUrl});
+  $('#ho-title').value = ''; $('#ho-body').value = ''; $('#ho-image').value = '';
+});
+
+let notesTimer = null;
+$('#gm-notes-text') && $('#gm-notes-text').addEventListener('input', e => {
+  clearTimeout(notesTimer);
+  notesTimer = setTimeout(() => roomRef('permanent/gmNotes').set(e.target.value), 500);
+});
+
+/* ============================================================
+   13. 방 설정 (내보내기 / 세션 종료 / 방 삭제)
+   ============================================================ */
+$('#btn-export-room').addEventListener('click', async () => {
+  const snap = await roomRef('permanent').get();
+  const blob = new Blob([JSON.stringify({permanent: snap.val() || {}}, null, 2)], {type: 'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '방기본세팅_' + State.roomId + '.json';
+  a.click();
+});
+
+$('#btn-end-session').addEventListener('click', async () => {
+  if (!confirm('채팅, 귓속말, 캐릭터, 영상 상태 등 이번 세션의 임시 데이터를 모두 지웁니다. 계속할까요?')) return;
+  await roomRef('session/chatPublic').remove();
+  await roomRef('session/chatWhisper').remove();
+  await roomRef('session/characters').remove();
+  await roomRef('session/mp4').remove();
+  await roomRef('session/webrtc').remove();
+  toast('세션 데이터를 정리했습니다.');
+});
+
+$('#btn-delete-room').addEventListener('click', async () => {
+  if (!confirm('방을 되돌릴 수 없이 삭제합니다. 정말 삭제할까요?')) return;
+  await roomRef('').remove();
+  location.reload();
+});
+
+/* ============================================================
+   14. 시작
+   ============================================================ */
+initFirebase();
+
+// URL에 방 코드(#roomId)가 있으면 참가 폼에 채워 준다
+if (location.hash.length > 1) {
+  $('#jn-code').value = location.hash.slice(1);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,95 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "rooms": {
+      "$roomId": {
+
+        ".read":  "auth != null && root.child('rooms/'+$roomId+'/secret/gmHash').exists() && root.child('rooms/'+$roomId+'/roles/'+auth.uid).val() === root.child('rooms/'+$roomId+'/secret/gmHash').val()",
+        ".write": "auth != null && root.child('rooms/'+$roomId+'/secret/gmHash').exists() && root.child('rooms/'+$roomId+'/roles/'+auth.uid).val() === root.child('rooms/'+$roomId+'/secret/gmHash').val()",
+
+        "secret": {
+          "gmHash":     { ".write": "!data.exists() && newData.isString()" },
+          "playerHash": { ".write": "!data.exists() && newData.isString()" }
+        },
+
+        "roles": {
+          "$uid": {
+            ".read": "auth != null && auth.uid === $uid",
+            ".write": "auth != null && auth.uid === $uid && newData.isString() && (newData.val() === root.child('rooms/'+$roomId+'/secret/gmHash').val() || newData.val() === root.child('rooms/'+$roomId+'/secret/playerHash').val())"
+          }
+        },
+
+        "meta": {
+          ".read": "auth != null && root.child('rooms/'+$roomId+'/roles/'+auth.uid).exists()",
+          ".write": "!data.exists()"
+        },
+
+        "presence": {
+          ".read": "auth != null && root.child('rooms/'+$roomId+'/roles/'+auth.uid).exists()",
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid && root.child('rooms/'+$roomId+'/roles/'+auth.uid).exists()"
+          }
+        },
+
+        "permanent": {
+          "background":       { ".read": "auth != null && root.child('rooms/'+$roomId+'/roles/'+auth.uid).exists()" },
+          "channels":         { ".read": "auth != null && root.child('rooms/'+$roomId+'/roles/'+auth.uid).exists()" },
+          "bgm":              { ".read": "auth != null && root.child('rooms/'+$roomId+'/roles/'+auth.uid).exists()" },
+          "handoutsPublished":{ ".read": "auth != null && root.child('rooms/'+$roomId+'/roles/'+auth.uid).exists()" },
+          "board": {
+            ".read": "auth != null && root.child('rooms/'+$roomId+'/roles/'+auth.uid).exists()",
+            "$imgId": {
+              ".write": "auth != null && root.child('rooms/'+$roomId+'/roles/'+auth.uid).exists() && data.exists() && newData.exists() && newData.child('url').val() === data.child('url').val()"
+            }
+          }
+        },
+
+        "session": {
+          "chatPublic": {
+            ".read": "auth != null && root.child('rooms/'+$roomId+'/roles/'+auth.uid).exists()",
+            "$msgId": {
+              ".write": "auth != null && root.child('rooms/'+$roomId+'/roles/'+auth.uid).exists() && newData.exists() && newData.child('from').val() === auth.uid"
+            }
+          },
+
+          "chatWhisper": {
+            "$uid": {
+              ".read": "auth != null && auth.uid === $uid",
+              "$msgId": {
+                ".write": "auth != null && root.child('rooms/'+$roomId+'/roles/'+auth.uid).exists() && newData.exists() && newData.child('from').val() === auth.uid"
+              }
+            }
+          },
+
+          "characters": {
+            ".read": "auth != null && root.child('rooms/'+$roomId+'/roles/'+auth.uid).exists()",
+            "$charId": {
+              ".write": "auth != null && root.child('rooms/'+$roomId+'/roles/'+auth.uid).exists() && ( (data.exists() && data.child('owner').val() === auth.uid) || (newData.exists() && newData.child('owner').val() === auth.uid) )"
+            }
+          },
+
+          "mp4": {
+            "control":  { ".read": "auth != null && root.child('rooms/'+$roomId+'/roles/'+auth.uid).exists()" },
+            "progress": {
+              ".read": "auth != null && root.child('rooms/'+$roomId+'/roles/'+auth.uid).exists()",
+              "$uid": {
+                ".write": "auth != null && auth.uid === $uid && root.child('rooms/'+$roomId+'/roles/'+auth.uid).exists()"
+              }
+            }
+          },
+
+          "webrtc": {
+            "$targetUid": {
+              ".read": "auth != null && auth.uid === $targetUid",
+              "$fromUid": {
+                ".write": "auth != null && auth.uid === $fromUid && root.child('rooms/'+$roomId+'/roles/'+auth.uid).exists()"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
