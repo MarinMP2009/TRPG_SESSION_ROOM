@@ -13,13 +13,10 @@
      ============================================================ -->
 <script>
   window.FIREBASE_CONFIG = {
-    apiKey: "AIzaSyBrv7YDRo5YcJwkoj8Ipvi2LIAuPzz7ic4",
-    authDomain: "trpg-session-9c843.firebaseapp.com",
-    databaseURL: "https://trpg-session-9c843-default-rtdb.firebaseio.com",
-    projectId: "trpg-session-9c843",
-    storageBucket: "trpg-session-9c843.firebasestorage.app",
-    messagingSenderId: "728779661386",
-    appId: "1:728779661386:web:1eaa2b3d03a22e696c06b3"
+    apiKey: "여기에-API-KEY",
+    authDomain: "여기에-PROJECT-ID.firebaseapp.com",
+    databaseURL: "https://여기에-PROJECT-ID-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "여기에-PROJECT-ID"
   };
 </script>
 
@@ -109,6 +106,25 @@ a{color:var(--brass);}
 .landing-head p{color:var(--muted);margin:0;}
 .landing-cards{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
 @media (max-width:720px){.landing-cards{grid-template-columns:1fr;}}
+.history-card{margin-top:18px;}
+.history-card .head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.history-card .head h2{margin:0;}
+.history-list{display:flex;flex-direction:column;gap:6px;max-height:280px;overflow-y:auto;}
+.history-item{
+  display:flex;align-items:center;gap:10px;
+  border:1px solid var(--border);border-radius:8px;
+  padding:9px 12px;background:var(--panel-raised);
+  cursor:pointer;
+}
+.history-item:hover{border-color:var(--brass-dim);}
+.history-item .hi-main{flex:1;min-width:0;}
+.history-item .hi-name{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.history-item .hi-meta{font-size:11.5px;color:var(--muted);}
+.history-item .hi-role{font-size:10.5px;padding:2px 7px;border-radius:999px;border:1px solid var(--border);color:var(--muted);flex-shrink:0;}
+.history-item .hi-role.gm{border-color:var(--crimson);color:#e2a9a9;}
+.history-item .hi-role.player{border-color:var(--verdigris);color:#a3d3c4;}
+.history-item .hi-del{flex-shrink:0;padding:4px 8px;font-size:11px;}
+.history-empty{color:var(--muted);font-size:12.5px;}
 .card{
   background:var(--panel);
   border:1px solid var(--border);
@@ -312,6 +328,15 @@ a{color:var(--brass);}
         </div>
         <div class="msg" id="jn-msg"></div>
       </div>
+    </div>
+
+    <div class="card history-card">
+      <div class="head">
+        <h2>최근 방 기록</h2>
+        <button class="ghost" id="btn-clear-history" style="font-size:11px;padding:5px 10px;">전체 지우기</button>
+      </div>
+      <p class="desc" style="margin-top:-4px;">이 브라우저에 들어갔던 방을 기억해 둬요. 비밀번호는 저장하지 않으니 입력은 매번 필요해요.</p>
+      <div class="history-list" id="history-list"></div>
     </div>
   </div>
 </div>
@@ -765,6 +790,86 @@ $('#btn-join-room').addEventListener('click', async () => {
 });
 
 /* ============================================================
+   방 기록 (이 브라우저에 로컬로만 저장 — 비밀번호는 저장하지 않음)
+   ============================================================ */
+const HISTORY_KEY = 'trpg_room_history';
+const HISTORY_MAX = 100;
+
+function loadHistory() {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list) ? list : [];
+  } catch (e) { return []; }
+}
+
+function saveHistory(list) {
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(list)); } catch (e) { /* 저장 공간이 꽉 찼거나 접근 불가 */ }
+}
+
+function addToHistory(entry) {
+  let list = loadHistory();
+  list = list.filter(h => h.roomId !== entry.roomId);
+  list.unshift(entry);
+  if (list.length > HISTORY_MAX) list = list.slice(0, HISTORY_MAX);
+  saveHistory(list);
+  renderHistory();
+}
+
+function formatHistoryDate(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  const pad = n => String(n).padStart(2, '0');
+  return d.getFullYear() + '.' + pad(d.getMonth() + 1) + '.' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+
+function renderHistory() {
+  const box = $('#history-list');
+  if (!box) return;
+  const list = loadHistory();
+  if (list.length === 0) {
+    box.innerHTML = '<div class="history-empty">아직 들어간 방이 없어요.</div>';
+    return;
+  }
+  box.innerHTML = '';
+  list.forEach(h => {
+    const item = document.createElement('div');
+    item.className = 'history-item';
+    item.innerHTML =
+      '<div class="hi-main">' +
+        '<div class="hi-name">' + esc(h.roomName || h.roomId) + '</div>' +
+        '<div class="hi-meta">' + esc(h.nick || '') + ' · ' + formatHistoryDate(h.lastVisit) + '</div>' +
+      '</div>' +
+      '<span class="hi-role ' + (h.role === 'gm' ? 'gm' : 'player') + '">' + (h.role === 'gm' ? 'GM' : '탐사자') + '</span>' +
+      '<button class="ghost hi-del" data-room="' + esc(h.roomId) + '">삭제</button>';
+    item.addEventListener('click', e => {
+      if (e.target.closest('.hi-del')) return;
+      $('#jn-code').value = h.roomId;
+      if (h.nick) $('#jn-nick').value = h.nick;
+      $('#jn-pass').focus();
+      window.scrollTo({top: 0, behavior: 'smooth'});
+    });
+    box.appendChild(item);
+  });
+  $$('.hi-del', box).forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const roomId = btn.dataset.room;
+      saveHistory(loadHistory().filter(h => h.roomId !== roomId));
+      renderHistory();
+    });
+  });
+}
+
+$('#btn-clear-history').addEventListener('click', () => {
+  if (!confirm('방 기록을 전부 지울까요? (방 자체는 지워지지 않아요)')) return;
+  saveHistory([]);
+  renderHistory();
+});
+
+renderHistory();
+
+/* ============================================================
    セッション 진입
    ============================================================ */
 function enterSession(roomId, role, roomName, nick, myHash) {
@@ -774,6 +879,8 @@ function enterSession(roomId, role, roomName, nick, myHash) {
   State.nick = nick;
   State.myHash = myHash;
   State.isVideoHost = (role === 'gm');
+
+  addToHistory({roomId, roomName, role, nick, lastVisit: Date.now()});
 
   $('#view-landing').style.display = 'none';
   $('#view-session').classList.add('active');
