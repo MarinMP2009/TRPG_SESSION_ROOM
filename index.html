@@ -219,10 +219,21 @@ a{color:var(--brass);}
 .char-card .own-badge{font-size:10px;color:var(--brass);}
 
 /* ---------- Screen / board ---------- */
-#panel-screen{position:relative;}
+#panel-screen{position:relative;flex-direction:row;}
+.screen-main{flex:1;min-width:0;display:flex;flex-direction:column;}
 .board-toolbar{display:flex;gap:8px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--panel);flex-wrap:wrap;}
 .board-viewport{flex:1;position:relative;overflow:hidden;background:#0a0d12;background-image:radial-gradient(circle,#1a2029 1px,transparent 1px);background-size:26px 26px;}
 .board-viewport.no-grid{background-image:none;}
+.screen-chat{width:290px;flex-shrink:0;display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--panel);}
+.screen-chat .sc-head{padding:10px 12px;border-bottom:1px solid var(--border);font-size:12px;color:var(--muted);display:flex;justify-content:space-between;align-items:center;}
+.screen-chat .sc-head a{font-size:11px;color:var(--brass);cursor:pointer;text-decoration:underline;}
+.screen-chat .chat-list{padding:10px 12px;}
+.screen-chat .chat-input-row{padding:8px 10px;}
+.screen-chat .chat-send-row textarea{height:38px;}
+@media (max-width:900px){
+  #panel-screen{flex-direction:column;}
+  .screen-chat{width:auto;height:220px;border-left:none;border-top:1px solid var(--border);}
+}
 .board-stage{position:absolute;top:0;left:0;transform-origin:0 0;width:2000px;height:1400px;}
 .board-bg{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;opacity:.9;pointer-events:none;}
 .token{
@@ -412,21 +423,36 @@ a{color:var(--brass);}
 
     <!-- SCREEN -->
     <div class="tab-panel" id="panel-screen">
-      <div class="board-toolbar">
-        <button class="ghost" id="btn-set-bg">배경 설정 (GM)</button>
-        <button class="ghost" id="btn-add-image">이미지 추가 (GM)</button>
-        <label style="margin:0;display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px;">
-          <input type="checkbox" id="chk-grid" checked style="width:auto;"> 격자
-        </label>
-        <span style="color:var(--muted);font-size:12px;">화면 크기</span>
-        <input type="range" class="zoom-slider" id="zoom-slider" min="30" max="200" value="100">
-        <span id="zoom-label" style="color:var(--muted);font-size:12px;">100%</span>
-      </div>
-      <div class="board-viewport" id="board-viewport">
-        <div class="board-stage" id="board-stage">
-          <img id="board-bg" class="board-bg" src="" alt="" style="display:none;">
+      <div class="screen-main">
+        <div class="board-toolbar">
+          <button class="ghost" id="btn-set-bg">배경 설정 (GM)</button>
+          <button class="ghost" id="btn-add-image">이미지 추가 (GM)</button>
+          <label style="margin:0;display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px;">
+            <input type="checkbox" id="chk-grid" checked style="width:auto;"> 격자
+          </label>
+          <span style="color:var(--muted);font-size:12px;">화면 크기</span>
+          <input type="range" class="zoom-slider" id="zoom-slider" min="30" max="200" value="100">
+          <span id="zoom-label" style="color:var(--muted);font-size:12px;">100%</span>
+        </div>
+        <div class="board-viewport" id="board-viewport">
+          <div class="board-stage" id="board-stage">
+            <img id="board-bg" class="board-bg" src="" alt="" style="display:none;">
+          </div>
         </div>
       </div>
+      <aside class="screen-chat">
+        <div class="sc-head">
+          <span id="screen-chat-channel-label">채팅 — 메인</span>
+          <a id="btn-open-full-chat">전체 화면</a>
+        </div>
+        <div class="chat-list" id="screen-chat-list"></div>
+        <div class="chat-input-row">
+          <div class="chat-send-row">
+            <textarea id="screen-chat-input" placeholder="메시지 입력 (Enter로 전송)"></textarea>
+            <button class="primary" id="btn-screen-send-chat">전송</button>
+          </div>
+        </div>
+      </aside>
     </div>
 
     <!-- BGM -->
@@ -1089,10 +1115,9 @@ function mergedChatEntries() {
   return all.sort((a, b) => (a[1].ts || 0) - (b[1].ts || 0));
 }
 
-function renderChat() {
-  const list = $('#chat-list');
+function renderMsgsInto(list, entries) {
+  if (!list) return;
   const atBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 40;
-  const entries = mergedChatEntries().filter(([id, m]) => m.channel === State.currentChannel);
   list.innerHTML = '';
   entries.forEach(([id, m]) => {
     const div = document.createElement('div');
@@ -1105,6 +1130,14 @@ function renderChat() {
     list.appendChild(div);
   });
   if (atBottom) list.scrollTop = list.scrollHeight;
+}
+
+function renderChat() {
+  const entries = mergedChatEntries().filter(([id, m]) => m.channel === State.currentChannel);
+  renderMsgsInto($('#chat-list'), entries);
+  renderMsgsInto($('#screen-chat-list'), entries);
+  const label = $('#screen-chat-channel-label');
+  if (label) label.textContent = '채팅 — ' + ((State.channels[State.currentChannel] || {}).name || State.currentChannel);
 }
 
 async function sendChat(text, diceMeta) {
@@ -1146,6 +1179,22 @@ $('#chat-input').addEventListener('keydown', e => {
     sendChat($('#chat-input').value);
     $('#chat-input').value = '';
   }
+});
+
+// 스크린 탭에 곁들인 채팅 (귓속말·주사위·판정 도구는 채팅 탭에서, 여기서는 빠르게 대화만)
+$('#btn-screen-send-chat').addEventListener('click', () => {
+  sendChat($('#screen-chat-input').value);
+  $('#screen-chat-input').value = '';
+});
+$('#screen-chat-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendChat($('#screen-chat-input').value);
+    $('#screen-chat-input').value = '';
+  }
+});
+$('#btn-open-full-chat').addEventListener('click', () => {
+  $('.nav-btn[data-tab="chat"]').click();
 });
 
 $('#btn-download-log').addEventListener('click', () => {
