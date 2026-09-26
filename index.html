@@ -179,7 +179,6 @@ a{color:var(--brass);}
 .tab-panel.active{display:flex;}
 
 /* ---------- Chat ---------- */
-#panel-chat{flex-direction:row;}
 .chat-col{flex:1;display:flex;flex-direction:column;min-width:0;}
 .chat-list{flex:1;overflow-y:auto;padding:14px 16px;}
 .chat-msg{margin-bottom:10px;max-width:640px;}
@@ -219,20 +218,57 @@ a{color:var(--brass);}
 .char-card .own-badge{font-size:10px;color:var(--brass);}
 
 /* ---------- Screen / board ---------- */
-#panel-screen{position:relative;flex-direction:row;}
-.screen-main{flex:1;min-width:0;display:flex;flex-direction:column;}
+/* ---------- 세션 통합 화면 (코코포리아 스타일: 좌측 아이콘 + 보조패널 + 중앙 스크린 + 우측 채팅) ---------- */
+#panel-session{position:relative;flex-direction:row;}
+
+.session-rail{
+  width:64px;flex-shrink:0;
+  background:var(--panel);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;align-items:stretch;
+  padding:8px 6px;overflow-y:auto;
+}
+.rail-btn{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  background:transparent;border:1px solid transparent;
+  padding:8px 2px;margin-bottom:4px;border-radius:8px;
+  color:var(--muted);
+}
+.rail-btn .rail-icon{font-size:18px;line-height:1;}
+.rail-btn .rail-label{font-size:9.5px;}
+.rail-btn:hover{color:var(--text);border-color:var(--border);}
+.rail-btn.active{background:var(--panel-raised);border-color:var(--brass-dim);color:var(--text);}
+.rail-sep{height:1px;background:var(--border);margin:6px 4px;}
+
+.session-secondary{
+  width:0;flex-shrink:0;overflow:hidden;
+  background:var(--panel);border-right:1px solid transparent;
+  display:flex;flex-direction:column;
+  transition:width .12s ease;
+}
+.session-secondary.open{width:320px;border-right-color:var(--border);}
+.session-secondary .sec-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;border-bottom:1px solid var(--border);
+  font-family:'Spectral',serif;font-size:14px;flex-shrink:0;
+  white-space:nowrap;
+}
+.sec-panel{display:none;flex:1;overflow-y:auto;}
+.sec-panel.active{display:block;}
+
+.session-board{flex:1;min-width:0;display:flex;flex-direction:column;}
 .board-toolbar{display:flex;gap:8px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--panel);flex-wrap:wrap;}
 .board-viewport{flex:1;position:relative;overflow:hidden;background:#0a0d12;background-image:radial-gradient(circle,#1a2029 1px,transparent 1px);background-size:26px 26px;}
 .board-viewport.no-grid{background-image:none;}
-.screen-chat{width:290px;flex-shrink:0;display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--panel);}
-.screen-chat .sc-head{padding:10px 12px;border-bottom:1px solid var(--border);font-size:12px;color:var(--muted);display:flex;justify-content:space-between;align-items:center;}
-.screen-chat .sc-head a{font-size:11px;color:var(--brass);cursor:pointer;text-decoration:underline;}
-.screen-chat .chat-list{padding:10px 12px;}
-.screen-chat .chat-input-row{padding:8px 10px;}
-.screen-chat .chat-send-row textarea{height:38px;}
-@media (max-width:900px){
-  #panel-screen{flex-direction:column;}
-  .screen-chat{width:auto;height:220px;border-left:none;border-top:1px solid var(--border);}
+
+.session-chat{width:380px;flex-shrink:0;display:flex;border-left:1px solid var(--border);background:var(--panel);}
+.session-chat .roster{width:150px;}
+
+@media (max-width:980px){
+  #panel-session{flex-direction:column;}
+  .session-rail{width:auto;flex-direction:row;border-right:none;border-bottom:1px solid var(--border);}
+  .session-secondary.open{width:auto;height:260px;border-right:none;border-bottom:1px solid var(--border);}
+  .session-board{min-height:300px;}
+  .session-chat{width:auto;height:260px;border-left:none;border-top:1px solid var(--border);}
 }
 .board-stage{position:absolute;top:0;left:0;transform-origin:0 0;width:2000px;height:1400px;}
 .board-bg{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;opacity:.9;pointer-events:none;}
@@ -367,63 +403,112 @@ a{color:var(--brass);}
   </div>
 
   <div class="sidebar">
-    <button class="nav-btn active" data-tab="chat">채팅</button>
-    <button class="nav-btn" data-tab="characters">캐릭터</button>
-    <button class="nav-btn" data-tab="screen">스크린</button>
-    <button class="nav-btn" data-tab="bgm">BGM</button>
+    <button class="nav-btn active" data-tab="session">세션</button>
     <button class="nav-btn" data-tab="video">영상 (mp4)</button>
-    <button class="nav-btn" data-tab="handouts">핸드아웃</button>
-
-    <div class="nav-sep" id="gm-nav-sep"></div>
-    <div class="nav-label" id="gm-nav-label">GM 전용</div>
-    <button class="nav-btn" data-tab="gmnotes">GM 메모</button>
-    <button class="nav-btn" data-tab="settings">방 설정</button>
   </div>
 
   <div class="main">
 
-    <!-- CHAT -->
-    <div class="tab-panel active" id="panel-chat">
-      <div class="chat-col">
-        <div class="chat-list" id="chat-list"></div>
-        <div class="chat-input-row">
-          <div class="chat-toolbar">
-            <select id="chat-channel"></select>
-            <button id="btn-toggle-whisper" class="ghost">귓속말</button>
-            <button id="btn-open-dice" class="ghost">주사위</button>
-            <button id="btn-open-check" class="ghost">판정</button>
-            <button id="btn-download-log" class="ghost">기록 저장</button>
+    <!-- ================= SESSION (스크린 + 채팅 + 좌측 아이콘 패널) ================= -->
+    <div class="tab-panel active" id="panel-session">
+
+      <div class="session-rail">
+        <button class="rail-btn" data-sec="characters" title="캐릭터">
+          <span class="rail-icon">🧑</span><span class="rail-label">캐릭터</span>
+        </button>
+        <button class="rail-btn" data-sec="bgm" title="BGM">
+          <span class="rail-icon">🎵</span><span class="rail-label">BGM</span>
+        </button>
+        <button class="rail-btn" data-sec="handouts" title="핸드아웃">
+          <span class="rail-icon">📄</span><span class="rail-label">핸드아웃</span>
+        </button>
+        <div class="rail-sep" id="gm-rail-sep"></div>
+        <button class="rail-btn gm-only" data-sec="gmnotes" title="GM 메모">
+          <span class="rail-icon">📝</span><span class="rail-label">GM메모</span>
+        </button>
+        <button class="rail-btn gm-only" data-sec="settings" title="방 설정">
+          <span class="rail-icon">⚙️</span><span class="rail-label">설정</span>
+        </button>
+      </div>
+
+      <div class="session-secondary" id="session-secondary">
+        <div class="sec-head">
+          <span id="sec-title">-</span>
+          <button class="ghost" id="btn-close-sec" style="padding:3px 9px;font-size:11px;">닫기</button>
+        </div>
+
+        <!-- CHARACTERS -->
+        <div class="sec-panel" data-sec="characters">
+          <div class="pad">
+            <p class="hint">본인 캐릭터의 상태는 직접 수정할 수 있습니다. 캐릭터는 서버에 영구 저장되지 않으니, 세션이 끝나기 전에 내보내기 해 두세요.</p>
+            <div class="row" style="margin-bottom:16px;">
+              <button class="primary" id="btn-new-char">새 캐릭터</button>
+              <button class="ghost" id="btn-import-char">가져오기</button>
+              <input type="file" id="char-import-input" accept="application/json" class="hidden">
+            </div>
+            <div class="char-grid" id="char-grid"></div>
           </div>
-          <div class="whisper-picker" id="whisper-picker"></div>
-          <div class="chat-send-row">
-            <textarea id="chat-input" placeholder="메시지를 입력하세요 (Enter로 전송, Shift+Enter 줄바꿈)"></textarea>
-            <button class="primary" id="btn-send-chat">보내기</button>
+        </div>
+
+        <!-- BGM -->
+        <div class="sec-panel" data-sec="bgm">
+          <div class="pad">
+            <p class="hint">곡 등록과 재생은 GM만 할 수 있습니다. 소리 크기는 각자 기기에서만 적용됩니다.</p>
+            <div class="row" id="gm-bgm-controls">
+              <input id="bgm-title" placeholder="곡 이름">
+              <input id="bgm-url" placeholder="곡 링크(URL)">
+              <button class="ghost" id="btn-add-track">추가</button>
+            </div>
+            <ul class="track-list" id="track-list"></ul>
+            <label>내 기기 볼륨</label>
+            <input type="range" id="bgm-volume" min="0" max="100" value="60">
+            <audio id="bgm-audio" preload="auto"></audio>
+          </div>
+        </div>
+
+        <!-- HANDOUTS -->
+        <div class="sec-panel" data-sec="handouts">
+          <div class="pad">
+            <p class="hint" id="handout-hint">GM이 공개한 자료만 보입니다.</p>
+            <div id="gm-handout-editor" class="row" style="flex-direction:column;">
+              <input id="ho-title" placeholder="제목">
+              <textarea id="ho-body" placeholder="내용" style="height:80px;"></textarea>
+              <input id="ho-image" placeholder="이미지 링크(선택)">
+              <button class="primary" id="btn-publish-handout" style="width:fit-content;">참가자에게 공개</button>
+            </div>
+            <div id="handout-list" style="margin-top:16px;"></div>
+          </div>
+        </div>
+
+        <!-- GM NOTES -->
+        <div class="sec-panel" data-sec="gmnotes">
+          <div class="pad">
+            <p class="hint">GM만 볼 수 있고, 방 기본 세팅으로 영구 저장됩니다.</p>
+            <textarea id="gm-notes-text" style="height:60vh;"></textarea>
+          </div>
+        </div>
+
+        <!-- SETTINGS -->
+        <div class="sec-panel" data-sec="settings">
+          <div class="pad">
+            <div class="row" style="flex-direction:column;">
+              <label>방 기본 세팅 내보내기</label>
+              <button class="ghost" id="btn-export-room" style="width:fit-content;">JSON으로 내려받기</button>
+
+              <label style="margin-top:18px;">세션 종료</label>
+              <p class="hint" style="margin:0 0 6px;">채팅, 귓속말, 캐릭터, 영상 상태 등 이번 세션의 임시 데이터를 모두 지웁니다. 방 기본 세팅(배경, 이미지, BGM, 채널, 핸드아웃, GM 메모)은 남습니다.</p>
+              <button class="danger" id="btn-end-session" style="width:fit-content;">세션 종료하고 정리</button>
+
+              <label style="margin-top:18px;">방 삭제</label>
+              <p class="hint" style="margin:0 0 6px;">방 전체를 되돌릴 수 없이 삭제합니다.</p>
+              <button class="danger" id="btn-delete-room" style="width:fit-content;">방 삭제</button>
+            </div>
           </div>
         </div>
       </div>
-      <div class="roster">
-        <h3>접속자</h3>
-        <div id="roster-list"></div>
-      </div>
-    </div>
 
-    <!-- CHARACTERS -->
-    <div class="tab-panel" id="panel-characters">
-      <div class="pad">
-        <div class="section-title">캐릭터</div>
-        <p class="hint">본인 캐릭터의 상태는 직접 수정할 수 있습니다. 캐릭터는 서버에 영구 저장되지 않으니, 세션이 끝나기 전에 내보내기 해 두세요.</p>
-        <div class="row" style="margin-bottom:16px;">
-          <button class="primary" id="btn-new-char">새 캐릭터</button>
-          <button class="ghost" id="btn-import-char">가져오기</button>
-          <input type="file" id="char-import-input" accept="application/json" class="hidden">
-        </div>
-        <div class="char-grid" id="char-grid"></div>
-      </div>
-    </div>
-
-    <!-- SCREEN -->
-    <div class="tab-panel" id="panel-screen">
-      <div class="screen-main">
+      <!-- SCREEN (보드) -->
+      <div class="session-board">
         <div class="board-toolbar">
           <button class="ghost" id="btn-set-bg">배경 설정 (GM)</button>
           <button class="ghost" id="btn-add-image">이미지 추가 (GM)</button>
@@ -440,39 +525,35 @@ a{color:var(--brass);}
           </div>
         </div>
       </div>
-      <aside class="screen-chat">
-        <div class="sc-head">
-          <span id="screen-chat-channel-label">채팅 — 메인</span>
-          <a id="btn-open-full-chat">전체 화면</a>
-        </div>
-        <div class="chat-list" id="screen-chat-list"></div>
-        <div class="chat-input-row">
-          <div class="chat-send-row">
-            <textarea id="screen-chat-input" placeholder="메시지 입력 (Enter로 전송)"></textarea>
-            <button class="primary" id="btn-screen-send-chat">전송</button>
+
+      <!-- CHAT (항상 보이는 오른쪽 사이드바) -->
+      <div class="session-chat">
+        <div class="chat-col">
+          <div class="chat-list" id="chat-list"></div>
+          <div class="chat-input-row">
+            <div class="chat-toolbar">
+              <select id="chat-channel"></select>
+              <button id="btn-toggle-whisper" class="ghost">귓속말</button>
+              <button id="btn-open-dice" class="ghost">주사위</button>
+              <button id="btn-open-check" class="ghost">판정</button>
+              <button id="btn-download-log" class="ghost">기록</button>
+            </div>
+            <div class="whisper-picker" id="whisper-picker"></div>
+            <div class="chat-send-row">
+              <textarea id="chat-input" placeholder="메시지 (Enter 전송, Shift+Enter 줄바꿈)"></textarea>
+              <button class="primary" id="btn-send-chat">전송</button>
+            </div>
           </div>
         </div>
-      </aside>
-    </div>
-
-    <!-- BGM -->
-    <div class="tab-panel" id="panel-bgm">
-      <div class="pad">
-        <div class="section-title">BGM</div>
-        <p class="hint">곡 등록과 재생은 GM만 할 수 있습니다. 소리 크기는 각자 기기에서만 적용됩니다.</p>
-        <div class="row" id="gm-bgm-controls">
-          <input id="bgm-title" placeholder="곡 이름">
-          <input id="bgm-url" placeholder="곡 링크(URL)">
-          <button class="ghost" id="btn-add-track">추가</button>
+        <div class="roster">
+          <h3>접속자</h3>
+          <div id="roster-list"></div>
         </div>
-        <ul class="track-list" id="track-list"></ul>
-        <label>내 기기 볼륨</label>
-        <input type="range" id="bgm-volume" min="0" max="100" value="60">
-        <audio id="bgm-audio" preload="auto"></audio>
       </div>
+
     </div>
 
-    <!-- VIDEO -->
+    <!-- ================= VIDEO (mp4) — 별도 탭 ================= -->
     <div class="tab-panel" id="panel-video">
       <div class="pad">
         <div class="section-title">영상 동시 재생 (mp4)</div>
@@ -503,49 +584,6 @@ a{color:var(--brass);}
           <thead><tr><th>참가자</th><th>상태</th><th>진행률</th></tr></thead>
           <tbody id="progress-body"></tbody>
         </table>
-      </div>
-    </div>
-
-    <!-- HANDOUTS -->
-    <div class="tab-panel" id="panel-handouts">
-      <div class="pad">
-        <div class="section-title">핸드아웃</div>
-        <p class="hint" id="handout-hint">GM이 공개한 자료만 보입니다.</p>
-        <div id="gm-handout-editor" class="row" style="flex-direction:column;">
-          <input id="ho-title" placeholder="제목">
-          <textarea id="ho-body" placeholder="내용" style="height:80px;"></textarea>
-          <input id="ho-image" placeholder="이미지 링크(선택)">
-          <button class="primary" id="btn-publish-handout" style="width:fit-content;">참가자에게 공개</button>
-        </div>
-        <div id="handout-list" style="margin-top:16px;"></div>
-      </div>
-    </div>
-
-    <!-- GM NOTES -->
-    <div class="tab-panel" id="panel-gmnotes">
-      <div class="pad">
-        <div class="section-title">GM 메모</div>
-        <p class="hint">GM만 볼 수 있고, 방 기본 세팅으로 영구 저장됩니다.</p>
-        <textarea id="gm-notes-text" style="height:60vh;"></textarea>
-      </div>
-    </div>
-
-    <!-- SETTINGS -->
-    <div class="tab-panel" id="panel-settings">
-      <div class="pad">
-        <div class="section-title">방 설정</div>
-        <div class="row" style="flex-direction:column;max-width:420px;">
-          <label>방 기본 세팅 내보내기</label>
-          <button class="ghost" id="btn-export-room" style="width:fit-content;">JSON으로 내려받기</button>
-
-          <label style="margin-top:18px;">세션 종료</label>
-          <p class="hint" style="margin:0 0 6px;">채팅, 귓속말, 캐릭터, 영상 상태 등 이번 세션의 임시 데이터를 모두 지웁니다. 방 기본 세팅(배경, 이미지, BGM, 채널, 핸드아웃, GM 메모)은 남습니다.</p>
-          <button class="danger" id="btn-end-session" style="width:fit-content;">세션 종료하고 정리</button>
-
-          <label style="margin-top:18px;">방 삭제</label>
-          <p class="hint" style="margin:0 0 6px;">방 전체를 되돌릴 수 없이 삭제합니다.</p>
-          <button class="danger" id="btn-delete-room" style="width:fit-content;">방 삭제</button>
-        </div>
       </div>
     </div>
 
@@ -920,9 +958,8 @@ function enterSession(roomId, role, roomName, nick, myHash) {
   $('#tb-room-code').textContent = '방 코드: ' + roomId;
 
   if (role !== 'gm') {
-    $('#gm-nav-sep').style.display = 'none';
-    $('#gm-nav-label').style.display = 'none';
-    $$('.nav-btn[data-tab="gmnotes"], .nav-btn[data-tab="settings"]').forEach(b => b.style.display = 'none');
+    $('#gm-rail-sep').style.display = 'none';
+    $$('.rail-btn.gm-only').forEach(b => b.style.display = 'none');
     $('#gm-bgm-controls').style.display = 'none';
     $('#gm-video-controls').style.display = 'none';
     $('#gm-video-transport').style.display = 'none';
@@ -955,6 +992,31 @@ $$('.nav-btn').forEach(btn => {
     $('#panel-' + btn.dataset.tab).classList.add('active');
   });
 });
+
+// 세션 화면 좌측 아이콘 — 캐릭터/BGM/핸드아웃/GM메모/설정 보조 패널을 여닫는다 (코코포리아의 좌측 패널과 비슷한 동작)
+const RAIL_TITLES = {characters: '캐릭터', bgm: 'BGM', handouts: '핸드아웃', gmnotes: 'GM 메모', settings: '방 설정'};
+function openSection(sec) {
+  const panel = $('#session-secondary');
+  $$('.rail-btn').forEach(b => b.classList.toggle('active', b.dataset.sec === sec));
+  $$('.sec-panel').forEach(p => p.classList.toggle('active', p.dataset.sec === sec));
+  $('#sec-title').textContent = RAIL_TITLES[sec] || '';
+  panel.classList.add('open');
+  panel.dataset.sec = sec;
+}
+function closeSection() {
+  const panel = $('#session-secondary');
+  panel.classList.remove('open');
+  panel.dataset.sec = '';
+  $$('.rail-btn').forEach(b => b.classList.remove('active'));
+}
+$$('.rail-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const sec = btn.dataset.sec;
+    if ($('#session-secondary').dataset.sec === sec) closeSection();
+    else openSection(sec);
+  });
+});
+$('#btn-close-sec').addEventListener('click', closeSection);
 
 $('#btn-leave').addEventListener('click', () => location.reload());
 
@@ -1135,9 +1197,6 @@ function renderMsgsInto(list, entries) {
 function renderChat() {
   const entries = mergedChatEntries().filter(([id, m]) => m.channel === State.currentChannel);
   renderMsgsInto($('#chat-list'), entries);
-  renderMsgsInto($('#screen-chat-list'), entries);
-  const label = $('#screen-chat-channel-label');
-  if (label) label.textContent = '채팅 — ' + ((State.channels[State.currentChannel] || {}).name || State.currentChannel);
 }
 
 async function sendChat(text, diceMeta) {
@@ -1179,22 +1238,6 @@ $('#chat-input').addEventListener('keydown', e => {
     sendChat($('#chat-input').value);
     $('#chat-input').value = '';
   }
-});
-
-// 스크린 탭에 곁들인 채팅 (귓속말·주사위·판정 도구는 채팅 탭에서, 여기서는 빠르게 대화만)
-$('#btn-screen-send-chat').addEventListener('click', () => {
-  sendChat($('#screen-chat-input').value);
-  $('#screen-chat-input').value = '';
-});
-$('#screen-chat-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    sendChat($('#screen-chat-input').value);
-    $('#screen-chat-input').value = '';
-  }
-});
-$('#btn-open-full-chat').addEventListener('click', () => {
-  $('.nav-btn[data-tab="chat"]').click();
 });
 
 $('#btn-download-log').addEventListener('click', () => {
